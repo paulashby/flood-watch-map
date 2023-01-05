@@ -1,0 +1,7 @@
+.ol-viewport {
+    mix-blend-mode: color-burn; 
+ }
+ 
+ #map {
+     background-color: forestgreen;
+ } 
