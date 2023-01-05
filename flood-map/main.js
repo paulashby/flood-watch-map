@@ -5,6 +5,8 @@ import { Map, View } from 'ol/index';
 import { Point } from 'ol/geom';
 import { getVectorContext } from 'ol/render';
 import { useGeographic } from 'ol/proj';
+import Graticule from 'ol/layer/Graticule';
+import Stroke from 'ol/style/Stroke';
 
 useGeographic();
 
@@ -16,7 +18,19 @@ const derbyish = [-1.4746, 52.9225];
 
 const map = new Map({
   target: 'map',
-  layers: [layer],
+  layers: [
+    layer,
+    new Graticule({
+      // the style to use for the lines, optional.
+      strokeStyle: new Stroke({
+        color: 'rgba(0,0,0,0.2)',
+        width: 2,
+        lineDash: [0.5, 4],
+      }),
+      showLabels: true,
+      wrapX: false,
+    })
+  ],
   view: new View({
     center: derbyish,
     zoom: 8
