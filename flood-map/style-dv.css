@@ -1,7 +1,7 @@
-.ol-viewport {
+#map .ol-layers {
+    background-color: forestgreen;
+}
+
+#map .ol-layer:first-child {
     mix-blend-mode: color-burn; 
- }
- 
- #map {
-     background-color: forestgreen;
- } 
+}

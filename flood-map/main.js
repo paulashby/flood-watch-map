@@ -10,11 +10,16 @@ import Stroke from 'ol/style/Stroke';
 
 useGeographic();
 
+const derbyish = [-1.4746, 52.9225];
+
 const layer = new TileLayer({
   source: new OSM()
 });
 
-const derbyish = [-1.4746, 52.9225];
+const view = new View({
+  center: derbyish,
+  zoom: 7
+});
 
 const map = new Map({
   target: 'map',
@@ -31,10 +36,7 @@ const map = new Map({
       wrapX: false,
     })
   ],
-  view: new View({
-    center: derbyish,
-    zoom: 8
-  })
+  view: view
 });
 
 // map.getView().setCenter(derbyish);
@@ -94,5 +96,18 @@ layer.on('postrender', function (event) {
     }
   }
   map.render();
+});
+
+$(window).on("resize", function(){
+  
+  setTimeout( function() { 
+    const minZoom = 5.5;
+    const maxZoom = 7;
+    const minWidth = 250;
+    const zoomPerPx = 0.001665;
+    let windowWidth = $(window).width();
+    let newZoom = Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
+    view.animate({zoom: newZoom, duration: 200});
+  }, 1000);
 });
 
