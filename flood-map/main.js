@@ -5,7 +5,7 @@ import { useGeographic } from 'ol/proj';
 import Stroke from 'ol/style/Stroke';
 
 import Feature from 'ol/Feature';
-import { Graticule, Vector as VectorLayer} from 'ol/layer';
+import { Graticule, Vector as VectorLayer } from 'ol/layer';
 import { OSM, Vector } from 'ol/source';
 import { Circle, Fill, Style, Icon } from 'ol/style';
 
@@ -43,7 +43,7 @@ const map = new Map({
 });
 
 const styleSevModerate = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */ ({
+  image: new Icon(/** @type {olx.style.IconOptions} */({
     anchor: [0.5, 46],
     anchorXUnits: "fraction",
     anchorYUnits: "pixels",
@@ -53,7 +53,7 @@ const styleSevModerate = new Style({
 });
 
 const styleSevHigh = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */ ({
+  image: new Icon(/** @type {olx.style.IconOptions} */({
     anchor: [0.5, 46],
     anchorXUnits: "fraction",
     anchorYUnits: "pixels",
@@ -80,64 +80,35 @@ const style = new Style({
   image: image,
 });
 
+// Limit with ?_limit=10
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
+let locationURLs = [];
 let features = [];
 
-// Get lat/lon based on city name
-$.ajax({
-  url: queryURL,
-  method: "GET"
-})
-  .then(function (response) {
 
-    if (!response.items.length) {
-      // No data
-      console.log("No data available");
-    } else {
-      // Get lat/long for flood event - this step is a serious bottleneck
-      response.items.forEach(item => {
-        let positionURL = item['@id'].replace("http://", "https://");
-        $.ajax({
-          url: positionURL,
-          method: "GET"
-        })
-          .then(function (posResponse) {
-            if (!posResponse || !response.items.length) {
-              console.log("Could not establish position for " + item.description);
-            } else {
-              // Push to features array to be added to map by postrender callback
-              let lon = posResponse.items.floodArea.long;
-              let lat = posResponse.items.floodArea.lat;
-              let severity = posResponse.items.severity; // eg "Flood warning"
-              let severityLevel = posResponse.items.severityLevel;
-              let location = posResponse.items.description;
-              let feature = new Feature({
-                geometry: new Point([lon, lat]),
-                type: severity,
-                level: severityLevel,
-                name: location
-              });
+$(window).on("areasLoaded", function () {
+  $.ajax({
+    url: queryURL,
+    method: "GET"
+  })
+    .then(function (response) {
+  
+      if (!response.items.length) {
+        // No data
+        console.log("No data available");
+      } else {
+        response.items.forEach(item => {
+          addMarker(item);
+        });
+      }
+    });
+});
 
-              if (severityLevel > 3) {
-                feature.setStyle(styleSevHigh);
-              }
-              features.push(feature);
-              let vectorSource = vectorLayer.getSource();
-              // Remove existing features
-              vectorSource.clear();
-              // Add updated
-              vectorSource.addFeatures(features);
-            }
-          });
-      });
-    }
-  });
-  
-$(window).on("resize", function(){
-  
-  setTimeout( function() { 
+$(window).on("resize", function () {
+
+  setTimeout(function () {
     let newZoom = getZoom();
-    view.animate({zoom: newZoom, duration: 200});
+    view.animate({ zoom: newZoom, duration: 200 });
   }, 1000);
 });
 
@@ -145,5 +116,32 @@ $(window).on("resize", function(){
 function getZoom() {
   let windowWidth = $(window).width();
   return Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
+}
+
+function addMarker(markerData) {
+
+  let coords = floodAreas[markerData.floodArea.notation];
+
+  if (coords) {
+    let severity = markerData.severity; // eg "Flood warning"
+    let severityLevel = markerData.severityLevel;
+    let location = markerData.description;
+    let feature = new Feature({
+      geometry: new Point(coords),
+      type: severity,
+      level: severityLevel,
+      name: location
+    });
+
+    if (severityLevel < 3) {
+      feature.setStyle(styleSevHigh);
+    }
+    features.push(feature);
+    let vectorSource = vectorLayer.getSource();
+    // Remove existing features
+    vectorSource.clear();
+    // Add updated
+    vectorSource.addFeatures(features);
+  }
 }
 
