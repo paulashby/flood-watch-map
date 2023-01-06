@@ -1,32 +1,35 @@
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
-import { Circle, Fill, Style } from 'ol/style';
 import { Map, View } from 'ol/index';
 import { Point } from 'ol/geom';
-import { getVectorContext } from 'ol/render';
 import { useGeographic } from 'ol/proj';
-import Graticule from 'ol/layer/Graticule';
 import Stroke from 'ol/style/Stroke';
+
+import Feature from 'ol/Feature';
+import { Graticule, Vector as VectorLayer} from 'ol/layer';
+import { OSM, Vector } from 'ol/source';
+import { Circle, Fill, Style, Icon } from 'ol/style';
 
 useGeographic();
 
+const minZoom = 5.5;
+const maxZoom = 7;
+const minWidth = 250;
+const zoomPerPx = 0.001665;
 const derbyish = [-1.4746, 52.9225];
-
-const layer = new TileLayer({
-  source: new OSM()
-});
 
 const view = new View({
   center: derbyish,
-  zoom: 7
+  zoom: getZoom()
 });
 
 const map = new Map({
   target: 'map',
   layers: [
-    layer,
+    new TileLayer({
+      source: new OSM()
+    }),
     new Graticule({
-      // the style to use for the lines, optional.
+      // Line style
       strokeStyle: new Stroke({
         color: 'rgba(0,0,0,0.2)',
         width: 2,
@@ -39,7 +42,34 @@ const map = new Map({
   view: view
 });
 
-// map.getView().setCenter(derbyish);
+const styleSevModerate = new Style({
+  image: new Icon(/** @type {olx.style.IconOptions} */ ({
+    anchor: [0.5, 46],
+    anchorXUnits: "fraction",
+    anchorYUnits: "pixels",
+    src: "./markers/severity-moderate.png",
+    scale: 0.1
+  }))
+});
+
+const styleSevHigh = new Style({
+  image: new Icon(/** @type {olx.style.IconOptions} */ ({
+    anchor: [0.5, 46],
+    anchorXUnits: "fraction",
+    anchorYUnits: "pixels",
+    src: "./markers/severity-high.png",
+    scale: 0.1
+  }))
+});
+
+let vectorLayer = new VectorLayer({
+  title: "Test markers",
+  source: new Vector({
+  }),
+  style: styleSevModerate
+});
+
+map.addLayer(vectorLayer);
 
 const image = new Circle({
   radius: 8,
@@ -50,8 +80,8 @@ const style = new Style({
   image: image,
 });
 
-let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/?min-severity=3";
-let geometries = [];
+let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
+let features = [];
 
 // Get lat/lon based on city name
 $.ajax({
@@ -75,39 +105,45 @@ $.ajax({
             if (!posResponse || !response.items.length) {
               console.log("Could not establish position for " + item.description);
             } else {
-              // Push to a points array to be added to map by postrender callback
+              // Push to features array to be added to map by postrender callback
               let lon = posResponse.items.floodArea.long;
               let lat = posResponse.items.floodArea.lat;
-              geometries.push(new Point([lon, lat]));
+              let severity = posResponse.items.severity; // eg "Flood warning"
+              let severityLevel = posResponse.items.severityLevel;
+              let location = posResponse.items.description;
+              let feature = new Feature({
+                geometry: new Point([lon, lat]),
+                type: severity,
+                level: severityLevel,
+                name: location
+              });
+
+              if (severityLevel > 3) {
+                feature.setStyle(styleSevHigh);
+              }
+              features.push(feature);
+              let vectorSource = vectorLayer.getSource();
+              // Remove existing features
+              vectorSource.clear();
+              // Add updated
+              vectorSource.addFeatures(features);
             }
           });
       });
     }
   });
-
-layer.on('postrender', function (event) {
-
-  const vectorContext = getVectorContext(event);
-
-  for (let i = 0; i < geometries.length; ++i) {
-    if (geometries[i]) {
-      vectorContext.setStyle(style);
-      vectorContext.drawGeometry(geometries[i]);
-    }
-  }
-  map.render();
-});
-
+  
 $(window).on("resize", function(){
   
   setTimeout( function() { 
-    const minZoom = 5.5;
-    const maxZoom = 7;
-    const minWidth = 250;
-    const zoomPerPx = 0.001665;
-    let windowWidth = $(window).width();
-    let newZoom = Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
+    let newZoom = getZoom();
     view.animate({zoom: newZoom, duration: 200});
   }, 1000);
 });
+
+// Returns appropriate zoom value for current width of window
+function getZoom() {
+  let windowWidth = $(window).width();
+  return Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
+}
 
