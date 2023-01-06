@@ -1,7 +1,7 @@
 #map .ol-layers {
-    /* background-color: forestgreen; */
+    background-color: forestgreen;
 }
 
 #map .ol-layer:first-child {
-    /* mix-blend-mode: color-burn;  */
+    mix-blend-mode: color-burn; 
 }
