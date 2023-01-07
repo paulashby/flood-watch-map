@@ -105,7 +105,7 @@ $.ajax({
   });
 
 $(window).on("resize", function () {
-  // No zoom adjustment when is inspecting a location
+  // No zoom adjustment when inspecting a location
   if (!localView) {
     setTimeout(function () {
       let newZoom = getZoom();
@@ -155,7 +155,6 @@ function addMarker(markerData) {
     if (severityLevel < 3) {
       feature.setStyle(styleSevHigh);
     }
-    // features.push(feature);
     let vectorSource = vectorLayer.getSource();
     // Add updated
     vectorSource.addFeature(feature);
