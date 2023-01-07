@@ -16,10 +16,12 @@ const maxZoom = 7;
 const minWidth = 250;
 const zoomPerPx = 0.001665;
 const derbyish = [-1.4746, 52.9225];
+const markerDelay = 100;
+const initialZoom = getZoom();
 
 const view = new View({
   center: derbyish,
-  zoom: getZoom()
+  zoom: initialZoom
 });
 
 const map = new Map({
@@ -62,7 +64,7 @@ const styleSevHigh = new Style({
   }))
 });
 
-let vectorLayer = new VectorLayer({
+const vectorLayer = new VectorLayer({
   title: "Test markers",
   source: new Vector({
   }),
@@ -82,45 +84,62 @@ const style = new Style({
 
 // Limit with ?_limit=10
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
-let locationURLs = [];
-let features = [];
+let apiFloodData = [];
+// Toggle when user is inspecting a location
+let localView = false;
 
+$.ajax({
+  url: queryURL,
+  method: "GET"
+})
+  .then(function (response) {
 
-$(window).on("areasLoaded", function () {
-  $.ajax({
-    url: queryURL,
-    method: "GET"
-  })
-    .then(function (response) {
-  
-      if (!response.items.length) {
-        // No data
-        console.log("No data available");
-      } else {
-        response.items.forEach(item => {
-          addMarker(item);
-        });
-      }
-    });
-});
+    if (!response.items.length) {
+      // No data
+      console.log("No data available");
+    } else {
+      apiFloodData = response.items;
+      // Clone array to persist data in original
+      updateMarkers([...apiFloodData]);
+    }
+  });
 
 $(window).on("resize", function () {
-
-  setTimeout(function () {
-    let newZoom = getZoom();
-    view.animate({ zoom: newZoom, duration: 200 });
-  }, 1000);
+  // No zoom adjustment when is inspecting a location
+  if (!localView) {
+    setTimeout(function () {
+      let newZoom = getZoom();
+      view.animate({ zoom: newZoom, duration: 200 });
+    }, 1000);
+  }
 });
 
-// Returns appropriate zoom value for current width of window
+// Return appropriate zoom value for current width of window
 function getZoom() {
   let windowWidth = $(window).width();
   return Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
 }
 
+// Reset markers to initial state
+function resetMarkers() {
+  // Clone array to persist data in original
+  updateMarkers([...apiFloodData]);
+}
+
+// Stagger process of adding markers
+function updateMarkers(items) {
+  if (items.length) {
+    // Remove first item after adding to map
+    addMarker(items.shift());
+    // Call self with updated array - recursion makes it easier to apply the delay
+    let markerInterval = setTimeout(updateMarkers, markerDelay, items);
+  }
+}
+
 function addMarker(markerData) {
 
   let coords = floodAreas[markerData.floodArea.notation];
+  console.count("addmarker");
 
   if (coords) {
     let severity = markerData.severity; // eg "Flood warning"
@@ -136,12 +155,10 @@ function addMarker(markerData) {
     if (severityLevel < 3) {
       feature.setStyle(styleSevHigh);
     }
-    features.push(feature);
+    // features.push(feature);
     let vectorSource = vectorLayer.getSource();
-    // Remove existing features
-    vectorSource.clear();
     // Add updated
-    vectorSource.addFeatures(features);
+    vectorSource.addFeature(feature);
   }
 }
 
