@@ -131,7 +131,7 @@ function updateMarkers(items) {
   if (items.length) {
     // Remove first item after adding to map
     addMarker(items.shift());
-    // Call self with updated array - recursion makes it easier to apply the delay
+    // Recursive call with updated array - slight delay adds sense of dynamism
     let markerInterval = setTimeout(updateMarkers, markerDelay, items);
   }
 }
