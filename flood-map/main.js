@@ -6,42 +6,25 @@ import Stroke from 'ol/style/Stroke.js';
 import Feature from 'ol/Feature.js';
 import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
 import { OSM, Vector as VectorSource } from 'ol/source.js';
-import { Circle, Fill, Style, Icon } from 'ol/style.js';
+import { Circle as CircleStyle, Fill, Style, Icon } from 'ol/style.js';
 import { useGeographic } from 'ol/proj.js';
+
+
+import { easeOut } from 'ol/easing.js';
+import { getVectorContext } from 'ol/render.js';
+import { unByKey } from 'ol/Observable.js';
 
 useGeographic();
 
-const minZoom = 5.5;
-const maxZoom = 7;
-const minWidth = 250;
-const zoomPerPx = 0.001665;
 const derbyish = [-1.4746, 52.9225];
 const markerDelay = 100;
 const fitViewDuration = 200;
+const flashDuration = 3000;
+const pulseInterval = 7000;
 
 const view = new View({
   center: derbyish,
   zoom: 6
-});
-
-const styleSevModerate = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */({
-    anchor: [0.5, 46],
-    anchorXUnits: "fraction",
-    anchorYUnits: "pixels",
-    src: "./markers/amber-dot-ring.gif",
-    scale: 1
-  }))
-});
-
-const styleSevHigh = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */({
-    anchor: [0.5, 46],
-    anchorXUnits: "fraction",
-    anchorYUnits: "pixels",
-    src: "./markers/red-dot-ring.gif",
-    scale: 1
-  }))
 });
 
 const ukStyle = new Style({
@@ -50,12 +33,36 @@ const ukStyle = new Style({
   })
 });
 
+const circleModerate = new CircleStyle({
+  radius: 8,
+  fill: new Fill({ color: 'rgba(255, 182, 0, 0.75)' }),
+});
+
+const circleSevere = new CircleStyle({
+  radius: 8,
+  fill: new Fill({ color: 'rgba(255, 0, 0, 0.75)' }),
+});
+
+const styleModerate = new Style({
+  image: circleModerate
+});
+
+const styleSevere = new Style({
+  image: circleSevere
+});
+
+const tileLayer = new TileLayer({
+  source: new OSM()
+});
+
 const markerLayer = new VectorLayer({
   title: "Flood markers",
   source: new VectorSource({
   }),
-  style: styleSevModerate
+  style: styleModerate
 });
+
+const vectorSource = markerLayer.getSource();
 
 const ukSource = new VectorSource({
   url: 'data/geojson/uk.geojson',
@@ -71,9 +78,7 @@ const ukLayer = new VectorLayer({
 const map = new Map({
   target: 'map',
   layers: [
-    new TileLayer({
-      source: new OSM()
-    }),
+    tileLayer,
     new Graticule({
       // Line style
       strokeStyle: new Stroke({
@@ -97,6 +102,10 @@ let localView = false;
 
 ukSource.on("featuresloadend", function () {
   zoomUK(getPadding());
+});
+
+vectorSource.on('addfeature', function (e) {
+  pulse(e.feature);
 });
 
 $(window).on("resize", function () {
@@ -131,7 +140,7 @@ function getPadding() {
 function zoomUK(padding) {
   const feature = ukSource.getFeatures()[0];
   const polygon = feature.getGeometry();
-  view.fit(polygon, {padding: padding, duration: fitViewDuration});
+  view.fit(polygon, { padding: padding, duration: fitViewDuration });
 }
 
 // Reset markers to initial state
@@ -166,13 +175,54 @@ function addMarker(markerData) {
     });
 
     if (severityLevel < 3) {
-      feature.setStyle(styleSevHigh);
+      feature.setStyle(styleSevere);
     }
-    let vectorSource = markerLayer.getSource();
     // Add updated
     vectorSource.addFeature(feature);
   } else {
     console.log(markerData.floodArea.notation);
+  }
+}
+
+function pulse(feature) {
+  flash(feature);
+  feature.pulseTimer = setInterval(flash, pulseInterval, feature);
+}
+
+function flash(feature) {
+  if (!localView) {
+    const start = Date.now();
+    const flashGeom = feature.getGeometry().clone();
+    const listenerKey = tileLayer.on('postrender', animate);
+
+    function animate(event) {
+      const frameState = event.frameState;
+      const elapsed = frameState.time - start;
+      if (elapsed >= flashDuration) {
+        unByKey(listenerKey);
+        return;
+      }
+      const vectorContext = getVectorContext(event);
+      const elapsedRatio = elapsed / flashDuration;
+      // radius will be 5 at start and 30 at end.
+      const radius = easeOut(elapsedRatio) * 25 + 5;
+      const opacity = easeOut(1 - elapsedRatio);
+
+      const style = new Style({
+        image: new CircleStyle({
+          radius: radius,
+          stroke: new Stroke({
+            color: `rgba(255, 255, 255, ${opacity})`,
+            width: 3 + opacity,
+          }),
+        }),
+      });
+
+      vectorContext.setStyle(style);
+      vectorContext.drawGeometry(flashGeom);
+      // tell OpenLayers to continue postrender animation
+      map.render();
+    }
   }
 }
 
