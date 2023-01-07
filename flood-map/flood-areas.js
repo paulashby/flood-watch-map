@@ -2,7 +2,7 @@ let floodAreas = {};
 
 // Get data for all flood areas
 $.ajax({
-    url: "http://environment.data.gov.uk/flood-monitoring/id/floodAreas",
+    url: "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/?_limit=10000",
     method: "GET"
 })
     .then(function (response) {
@@ -19,5 +19,6 @@ $.ajax({
             });
         }
         // Coords all stored - proceed with loading markers
-        $(window).trigger("areasLoaded");
+        // $(window).trigger("areasLoaded");
+        console.log(JSON.stringify(floodAreas));
     });

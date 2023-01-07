@@ -1,13 +1,13 @@
-import TileLayer from 'ol/layer/Tile';
-import { Map, View } from 'ol/index';
-import { Point } from 'ol/geom';
-import { useGeographic } from 'ol/proj';
-import Stroke from 'ol/style/Stroke';
-
-import Feature from 'ol/Feature';
-import { Graticule, Vector as VectorLayer } from 'ol/layer';
-import { OSM, Vector } from 'ol/source';
-import { Circle, Fill, Style, Icon } from 'ol/style';
+import GeoJSON from 'ol/format/GeoJSON.js';
+import TileLayer from 'ol/layer/Tile.js';
+import { Map, View } from 'ol/index.js';
+import { Point } from 'ol/geom.js';
+import Stroke from 'ol/style/Stroke.js';
+import Feature from 'ol/Feature.js';
+import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
+import { OSM, Vector as VectorSource } from 'ol/source.js';
+import { Circle, Fill, Style, Icon } from 'ol/style.js';
+import { useGeographic } from 'ol/proj.js';
 
 useGeographic();
 
@@ -17,11 +17,55 @@ const minWidth = 250;
 const zoomPerPx = 0.001665;
 const derbyish = [-1.4746, 52.9225];
 const markerDelay = 100;
-const initialZoom = getZoom();
+const fitViewDuration = 200;
 
 const view = new View({
   center: derbyish,
-  zoom: initialZoom
+  zoom: 6
+});
+
+const styleSevModerate = new Style({
+  image: new Icon(/** @type {olx.style.IconOptions} */({
+    anchor: [0.5, 46],
+    anchorXUnits: "fraction",
+    anchorYUnits: "pixels",
+    src: "./markers/amber-dot-ring.gif",
+    scale: 1
+  }))
+});
+
+const styleSevHigh = new Style({
+  image: new Icon(/** @type {olx.style.IconOptions} */({
+    anchor: [0.5, 46],
+    anchorXUnits: "fraction",
+    anchorYUnits: "pixels",
+    src: "./markers/red-dot-ring.gif",
+    scale: 1
+  }))
+});
+
+const ukStyle = new Style({
+  fill: new Fill({
+    color: 'rgba(0, 0, 0, 0)',
+  })
+});
+
+const markerLayer = new VectorLayer({
+  title: "Flood markers",
+  source: new VectorSource({
+  }),
+  style: styleSevModerate
+});
+
+const ukSource = new VectorSource({
+  url: 'data/geojson/uk.geojson',
+  format: new GeoJSON(),
+});
+
+const ukLayer = new VectorLayer({
+  title: "UK polygon",
+  source: ukSource,
+  style: ukStyle
 });
 
 const map = new Map({
@@ -39,54 +83,28 @@ const map = new Map({
       }),
       showLabels: true,
       wrapX: false,
-    })
+    }),
+    markerLayer,
+    ukLayer
   ],
   view: view
 });
 
-const styleSevModerate = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */({
-    anchor: [0.5, 46],
-    anchorXUnits: "fraction",
-    anchorYUnits: "pixels",
-    src: "./markers/severity-moderate.png",
-    scale: 0.1
-  }))
-});
-
-const styleSevHigh = new Style({
-  image: new Icon(/** @type {olx.style.IconOptions} */({
-    anchor: [0.5, 46],
-    anchorXUnits: "fraction",
-    anchorYUnits: "pixels",
-    src: "./markers/severity-high.png",
-    scale: 0.1
-  }))
-});
-
-const vectorLayer = new VectorLayer({
-  title: "Test markers",
-  source: new Vector({
-  }),
-  style: styleSevModerate
-});
-
-map.addLayer(vectorLayer);
-
-const image = new Circle({
-  radius: 8,
-  fill: new Fill({ color: 'rgb(255, 153, 0)' }),
-});
-
-const style = new Style({
-  image: image,
-});
-
-// Limit with ?_limit=10
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
 // Toggle when user is inspecting a location
 let localView = false;
+
+ukSource.on("featuresloadend", function () {
+  zoomUK(getPadding());
+});
+
+$(window).on("resize", function () {
+  // No zoom adjustment when inspecting a location
+  if (!localView) {
+    zoomUK(getPadding());
+  }
+});
 
 $.ajax({
   url: queryURL,
@@ -104,20 +122,16 @@ $.ajax({
     }
   });
 
-$(window).on("resize", function () {
-  // No zoom adjustment when inspecting a location
-  if (!localView) {
-    setTimeout(function () {
-      let newZoom = getZoom();
-      view.animate({ zoom: newZoom, duration: 200 });
-    }, 1000);
-  }
-});
+// Needs implementing
+function getPadding() {
+  // Get padding - probably based on a hidden DOM element
+  return [200, 0, 0, 0];
+}
 
-// Return appropriate zoom value for current width of window
-function getZoom() {
-  let windowWidth = $(window).width();
-  return Math.min(maxZoom, minZoom + (windowWidth - minWidth) * zoomPerPx);
+function zoomUK(padding) {
+  const feature = ukSource.getFeatures()[0];
+  const polygon = feature.getGeometry();
+  view.fit(polygon, {padding: padding, duration: fitViewDuration});
 }
 
 // Reset markers to initial state
@@ -139,7 +153,6 @@ function updateMarkers(items) {
 function addMarker(markerData) {
 
   let coords = floodAreas[markerData.floodArea.notation];
-  console.count("addmarker");
 
   if (coords) {
     let severity = markerData.severity; // eg "Flood warning"
@@ -155,9 +168,11 @@ function addMarker(markerData) {
     if (severityLevel < 3) {
       feature.setStyle(styleSevHigh);
     }
-    let vectorSource = vectorLayer.getSource();
+    let vectorSource = markerLayer.getSource();
     // Add updated
     vectorSource.addFeature(feature);
+  } else {
+    console.log(markerData.floodArea.notation);
   }
 }
 
