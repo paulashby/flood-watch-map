@@ -171,6 +171,8 @@ function addMarker(markerData) {
     let vectorSource = markerLayer.getSource();
     // Add updated
     vectorSource.addFeature(feature);
+  } else {
+    console.log(markerData.floodArea.notation);
   }
 }
 
