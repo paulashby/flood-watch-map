@@ -1,15 +1,13 @@
 import GeoJSON from 'ol/format/GeoJSON.js';
 import TileLayer from 'ol/layer/Tile.js';
 import { Map, View } from 'ol/index.js';
-import { Point, Polygon } from 'ol/geom.js';
+import { Point } from 'ol/geom.js';
 import Stroke from 'ol/style/Stroke.js';
 import Feature from 'ol/Feature.js';
 import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
 import { OSM, Vector as VectorSource } from 'ol/source.js';
 import { Circle as CircleStyle, Fill, Style, Icon } from 'ol/style.js';
 import { useGeographic } from 'ol/proj.js';
-
-
 import { easeOut } from 'ol/easing.js';
 import { getVectorContext } from 'ol/render.js';
 import { unByKey } from 'ol/Observable.js';
@@ -19,6 +17,7 @@ useGeographic();
 const derbyish = [-1.4746, 52.9225];
 const markerDelay = 100;
 const fitViewDuration = 200;
+const zoomLocalDuration = 1000;
 const flashDuration = 3000;
 
 const view = new View({
@@ -162,18 +161,16 @@ function getPadding() {
 function zoomUK(padding) {
   const feature = ukSource.getFeatures()[0];
   const polygon = feature.getGeometry();
-  view.fit(polygon, { padding: padding, duration: fitViewDuration });
+  view.fit(polygon, { 
+    padding: padding, 
+    duration: fitViewDuration,
+    easing: easeOut
+  });
 }
 
 function showLocal(e) {
-  // Use this ?lat=y&long=x&dist=d
-  // let areas = "https://environment.data.gov.uk/flood-monitoring/id/floodAreas/?lat=51.5072&long=0.1276&dist=10";
-  // ?lat=y&long=x&dist=r
-  let warningsURL = "https://environment.data.gov.uk/flood-monitoring/id/floods?lat=51.5072&long=0.1276&dist=40";
-
-
-  // let detail = e.detail;
-  // console.log(`Detail: ${detail}`);
+  
+  let warningsURL = "https://environment.data.gov.uk/flood-monitoring/id/floods?lat=51.5072&long=0.1276&dist=40";  
   let items = [];
 
   $.ajax({
@@ -199,50 +196,12 @@ function showLocal(e) {
         view.fit(markerSourceLocal.getExtent(), {
           size: map.getSize(),
           padding: [100, 100, 100, 100],
+          duration: zoomLocalDuration,
+          easing: easeOut,
           maxZoom: 16
         });
       }
     });
-
-
-  /*
-  Returns:
-  --------
-  county	        The name of the county intersecting the flood area, as entered by the Flood Incident Management Team		
-  description	    A textual description of the item	xsd:string	
-  eaAreaName	    Name of the relevant Environment Agency Area	xsd:string	
-  eaRegionName	  Name of the relevant Environment Agency region	xsd:string	
-  floodWatchArea	The Flood Watch Area corresponding ot a warning		optional
-  fwdCode	        Identifying code for the corresponding Target Area in Flood Warnings direct	xsd:string	
-  label	          A name for the item	xsd:string	
-  lat	            latitude of the centroid of the area, in WGS84 coordinate ref	xsd:decimal	
-  long	          longitude of the centroid of the area, in WGS84 coordinate ref	xsd:decimal	
-  notation	      A string or other literal which uniquely identifies the item.	xsd:string	
-  polygon	        The boundary of the area encoded as a geoJSON polygon	xsd:anyURI	
-  quickDialNumber	The QuickDial number of flood line for an English language recording	xsd:string	optional
-  riverOrSea	    Name of the river or sea area linked to the flood area	xsd:string	optional
-
-  Not sure how useful this is
-  */
-  //  const event = new CustomEvent('build', { detail: elem.dataset.time });
-  // elem.dispatchEvent(event);
-
-  /*
-  //  We could do this, but we won't know the correct padding for the zoom level
-  let coords = e.detail;
-  const geometry: new Point(coords);
-  view.fit(point, { padding: [170, 50, 30, 150], minResolution: 50 });
-  */
-
-  // traverse data, assemble whatever we need AND, for now, we'll just determine the rectangle
-  // We'll check for data in the function that dispatches the event
-
-  // const items = e.detail.items;
-  // const numItems = items.length;
-
-
-
-
 }
 
 // Reset markers to initial state
@@ -253,7 +212,12 @@ function resetMarkers() {
 
 // Stagger process of adding markers
 function updateMarkers(items, local) {
-  if (items.length) {
+  // If local, add markers immediately, else stagger
+  if (local) {
+    items.forEach(item => {
+      addMarker(items.shift(), local);
+    });
+  } else if (items.length) {
     // Remove first item after adding to map
     addMarker(items.shift(), local);
     // Recursive call with updated array - slight delay adds sense of dynamism
@@ -294,7 +258,7 @@ function pulse(feature) {
 }
 
 function flash(feature) {
-  // Flash markers only for appropriate view mode (local/national)
+  // Markers should flash only for appropriate view mode (local/national)
   const shouldFlash = feature.getProperties().local === localView;
 
   if (shouldFlash) {
