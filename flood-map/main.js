@@ -1,7 +1,7 @@
 import GeoJSON from 'ol/format/GeoJSON.js';
 import TileLayer from 'ol/layer/Tile.js';
 import { Map, View } from 'ol/index.js';
-import { Point } from 'ol/geom.js';
+import { Point, Polygon } from 'ol/geom.js';
 import Stroke from 'ol/style/Stroke.js';
 import Feature from 'ol/Feature.js';
 import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
@@ -54,14 +54,22 @@ const tileLayer = new TileLayer({
   source: new OSM()
 });
 
-const markerLayer = new VectorLayer({
-  title: "Flood markers",
+const markerLayerNational = new VectorLayer({
+  title: "Flood markers national",
   source: new VectorSource({
   }),
   style: styleModerate
 });
 
-const vectorSource = markerLayer.getSource();
+const markerLayerLocal = new VectorLayer({
+  title: "Flood markers local",
+  source: new VectorSource({
+  }),
+  style: styleModerate
+});
+
+const markerSourceNational = markerLayerNational.getSource();
+const markerSourceLocal = markerLayerLocal.getSource();
 
 const ukSource = new VectorSource({
   url: 'data/geojson/uk.geojson',
@@ -88,7 +96,8 @@ const map = new Map({
       showLabels: true,
       wrapX: false,
     }),
-    markerLayer,
+    markerLayerLocal,
+    markerLayerNational,
     ukLayer
   ],
   view: view
@@ -104,7 +113,11 @@ ukSource.on("featuresloadend", function () {
   zoomUK(getPadding());
 });
 
-vectorSource.on('addfeature', function (e) {
+markerSourceNational.on('addfeature', function (e) {
+  pulse(e.feature);
+});
+
+markerSourceLocal.on('addfeature', function (e) {
   pulse(e.feature);
 });
 
@@ -114,6 +127,13 @@ $(window).on("resize", function () {
     zoomUK(getPadding());
   }
 });
+
+$(window).on("click", function () {
+  const event = new CustomEvent('localView', { detail: "Hello from localView event" });
+  this.dispatchEvent(event);
+});
+
+$(window).on("localView", showLocal);
 
 $.ajax({
   url: queryURL,
@@ -127,9 +147,9 @@ $.ajax({
     } else {
       apiFloodData = response.items;
       // Use item count to set pulseInterval
-      pulseInterval = Math.round(flashDuration * apiFloodData.length/100);
+      pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
       // Clone array to persist data in original
-      updateMarkers([...apiFloodData]);
+      updateMarkers([...apiFloodData], false);
     }
   });
 
@@ -145,42 +165,124 @@ function zoomUK(padding) {
   view.fit(polygon, { padding: padding, duration: fitViewDuration });
 }
 
+function showLocal(e) {
+  // Use this ?lat=y&long=x&dist=d
+  // let areas = "https://environment.data.gov.uk/flood-monitoring/id/floodAreas/?lat=51.5072&long=0.1276&dist=10";
+  // ?lat=y&long=x&dist=r
+  let warningsURL = "https://environment.data.gov.uk/flood-monitoring/id/floods?lat=51.5072&long=0.1276&dist=40";
+
+
+  // let detail = e.detail;
+  // console.log(`Detail: ${detail}`);
+  let items = [];
+
+  $.ajax({
+    url: warningsURL,
+    method: "GET"
+  })
+    .then(function (response) {
+  
+      if (!response.items.length) {
+        // No data
+        console.log("No data available");
+      } else {
+        items = response.items;
+
+        // Switch to local view mode
+        localView = true;
+        markerLayerNational.setVisible(false);
+        
+        // Show only markers for locality
+        updateMarkers(items, true);
+
+        // Zoom to locality
+        view.fit(markerSourceLocal.getExtent(), {
+          size: map.getSize(),
+          padding: [100, 100, 100, 100],
+          maxZoom: 16
+        });
+      }
+    });
+
+
+  /*
+  Returns:
+  --------
+  county	        The name of the county intersecting the flood area, as entered by the Flood Incident Management Team		
+  description	    A textual description of the item	xsd:string	
+  eaAreaName	    Name of the relevant Environment Agency Area	xsd:string	
+  eaRegionName	  Name of the relevant Environment Agency region	xsd:string	
+  floodWatchArea	The Flood Watch Area corresponding ot a warning		optional
+  fwdCode	        Identifying code for the corresponding Target Area in Flood Warnings direct	xsd:string	
+  label	          A name for the item	xsd:string	
+  lat	            latitude of the centroid of the area, in WGS84 coordinate ref	xsd:decimal	
+  long	          longitude of the centroid of the area, in WGS84 coordinate ref	xsd:decimal	
+  notation	      A string or other literal which uniquely identifies the item.	xsd:string	
+  polygon	        The boundary of the area encoded as a geoJSON polygon	xsd:anyURI	
+  quickDialNumber	The QuickDial number of flood line for an English language recording	xsd:string	optional
+  riverOrSea	    Name of the river or sea area linked to the flood area	xsd:string	optional
+
+  Not sure how useful this is
+  */
+  //  const event = new CustomEvent('build', { detail: elem.dataset.time });
+  // elem.dispatchEvent(event);
+
+  /*
+  //  We could do this, but we won't know the correct padding for the zoom level
+  let coords = e.detail;
+  const geometry: new Point(coords);
+  view.fit(point, { padding: [170, 50, 30, 150], minResolution: 50 });
+  */
+
+  // traverse data, assemble whatever we need AND, for now, we'll just determine the rectangle
+  // We'll check for data in the function that dispatches the event
+
+  // const items = e.detail.items;
+  // const numItems = items.length;
+
+
+
+
+}
+
 // Reset markers to initial state
 function resetMarkers() {
   // Clone array to persist data in original
-  updateMarkers([...apiFloodData]);
+  updateMarkers([...apiFloodData], false);
 }
 
 // Stagger process of adding markers
-function updateMarkers(items) {
+function updateMarkers(items, local) {
   if (items.length) {
     // Remove first item after adding to map
-    addMarker(items.shift());
+    addMarker(items.shift(), local);
     // Recursive call with updated array - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(updateMarkers, markerDelay, items);
+    let markerInterval = setTimeout(updateMarkers, markerDelay, items, local);
   }
 }
 
-function addMarker(markerData) {
+function addMarker(markerData, local) {
 
-  let coords = floodAreas[markerData.floodArea.notation];
+  const coords = floodAreas[markerData.floodArea.notation];
+  const source = local ? markerSourceLocal : markerSourceNational;
 
   if (coords) {
-    let severity = markerData.severity; // eg "Flood warning"
-    let severityLevel = markerData.severityLevel;
-    let location = markerData.description;
-    let feature = new Feature({
+    const severity = markerData.severity; // eg "Flood warning"
+    const severityLevel = markerData.severityLevel;
+    const location = markerData.description;
+    const feature = new Feature({
       geometry: new Point(coords),
       type: severity,
       level: severityLevel,
-      name: location
+      name: location,
+      local: local
     });
 
     if (severityLevel < 3) {
       feature.setStyle(styleSevere);
     }
     // Add updated
-    vectorSource.addFeature(feature);
+    source.addFeature(feature);
   } else {
     console.log(markerData.floodArea.notation);
   }
@@ -192,7 +294,10 @@ function pulse(feature) {
 }
 
 function flash(feature) {
-  if (!localView) {
+  // Flash markers only for appropriate view mode (local/national)
+  const shouldFlash = feature.getProperties().local === localView;
+
+  if (shouldFlash) {
     const start = Date.now();
     const flashGeom = feature.getGeometry().clone();
     const listenerKey = tileLayer.on('postrender', animate);
