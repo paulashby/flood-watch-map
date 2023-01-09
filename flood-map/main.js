@@ -128,15 +128,15 @@ $(window).on("resize", function () {
 });
 
 $(window).on("click", function () {
-  const event = new CustomEvent('toggleView', { detail: "Hello from toggleView event" });
+  const event = new CustomEvent('changeLocation', { detail: "Hello from toggleView event" });
   this.dispatchEvent(event);
 });
 
-$(window).on("toggleView", function () {
+$(window).on("locationEvent", function (e) {
   if (localView) {
     showNational();
   } else {
-    showLocal();
+    showLocal(e);
   }
 });
 
@@ -175,43 +175,28 @@ function zoomUK(padding) {
 }
 
 function showLocal(e) {
+  // Get event data
+  let items = e.detail.items;
+
+  // Clear existing markers
+  markerSourceLocal.clear();
+
+  // Switch to local view mode
+  localView = true;
+  markerLayerLocal.setVisible(true);
+  markerLayerNational.setVisible(false);
   
-  let warningsURL = "https://environment.data.gov.uk/flood-monitoring/id/floods?lat=51.5072&long=0.1276&dist=40";  
-  let items = [];
+  // Show only markers for locality
+  updateMarkers(items, true);
 
-  $.ajax({
-    url: warningsURL,
-    method: "GET"
-  })
-    .then(function (response) {
-  
-      if (!response.items.length) {
-        // No data
-        console.log("No data available");
-      } else {
-        items = response.items;
-
-        // Clear existing markers
-        markerSourceLocal.clear();
-
-        // Switch to local view mode
-        localView = true;
-        markerLayerLocal.setVisible(true);
-        markerLayerNational.setVisible(false);
-        
-        // Show only markers for locality
-        updateMarkers(items, true);
-
-        // Zoom to locality
-        view.fit(markerSourceLocal.getExtent(), {
-          size: map.getSize(),
-          padding: [100, 100, 100, 100],
-          duration: zoomLocalDuration,
-          easing: easeOut,
-          maxZoom: 16
-        });
-      }
-    });
+  // Zoom to locality
+  view.fit(markerSourceLocal.getExtent(), {
+    size: map.getSize(),
+    padding: [100, 100, 100, 100],
+    duration: zoomLocalDuration,
+    easing: easeOut,
+    maxZoom: 16
+  });
 }
 
 function showNational() {
