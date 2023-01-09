@@ -128,11 +128,17 @@ $(window).on("resize", function () {
 });
 
 $(window).on("click", function () {
-  const event = new CustomEvent('localView', { detail: "Hello from localView event" });
+  const event = new CustomEvent('toggleView', { detail: "Hello from toggleView event" });
   this.dispatchEvent(event);
 });
 
-$(window).on("localView", showLocal);
+$(window).on("toggleView", function () {
+  if (localView) {
+    showNational();
+  } else {
+    showLocal();
+  }
+});
 
 $.ajax({
   url: queryURL,
@@ -185,8 +191,12 @@ function showLocal(e) {
       } else {
         items = response.items;
 
+        // Clear existing markers
+        markerSourceLocal.clear();
+
         // Switch to local view mode
         localView = true;
+        markerLayerLocal.setVisible(true);
         markerLayerNational.setVisible(false);
         
         // Show only markers for locality
@@ -204,10 +214,14 @@ function showLocal(e) {
     });
 }
 
-// Reset markers to initial state
-function resetMarkers() {
-  // Clone array to persist data in original
-  updateMarkers([...apiFloodData], false);
+function showNational() {
+  // Switch to national view mode
+  localView = false;
+  // Show appropriate markers
+  markerLayerNational.setVisible(true);
+  markerLayerLocal.setVisible(false);
+  // Adjust view to encompass UK
+  zoomUK(getPadding());
 }
 
 // Stagger process of adding markers
