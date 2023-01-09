@@ -20,7 +20,6 @@ const derbyish = [-1.4746, 52.9225];
 const markerDelay = 100;
 const fitViewDuration = 200;
 const flashDuration = 3000;
-const pulseInterval = 7000;
 
 const view = new View({
   center: derbyish,
@@ -97,6 +96,7 @@ const map = new Map({
 
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
+let pulseInterval = 0; // Value is reset when number of markers is known
 // Toggle when user is inspecting a location
 let localView = false;
 
@@ -126,6 +126,8 @@ $.ajax({
       console.log("No data available");
     } else {
       apiFloodData = response.items;
+      // Use item count to set pulseInterval
+      pulseInterval = Math.round(flashDuration * apiFloodData.length/100);
       // Clone array to persist data in original
       updateMarkers([...apiFloodData]);
     }
