@@ -128,17 +128,11 @@ $(window).on("resize", function () {
 });
 
 $(window).on("home", function () {
-  // No zoom adjustment when inspecting a location
-  localView = false;
-  zoomUK(getPadding());
+  showNational();
 });
 
 $(window).on("location", function (e, data) {
-  if (localView) {
-    showNational();
-  } else {
-    showLocal(e, data);
-  }
+  showLocal(e, data);
 });
 
 $.ajax({
