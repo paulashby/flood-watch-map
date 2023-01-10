@@ -8,8 +8,6 @@ import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
 import { OSM, Vector as VectorSource } from 'ol/source.js';
 import { Circle as CircleStyle, Fill, Style, Icon } from 'ol/style.js';
 import { useGeographic } from 'ol/proj.js';
-
-
 import { easeOut } from 'ol/easing.js';
 import { getVectorContext } from 'ol/render.js';
 import { unByKey } from 'ol/Observable.js';
@@ -19,6 +17,7 @@ useGeographic();
 const derbyish = [-1.4746, 52.9225];
 const markerDelay = 100;
 const fitViewDuration = 200;
+const zoomLocalDuration = 1000;
 const flashDuration = 3000;
 
 const view = new View({
@@ -54,14 +53,22 @@ const tileLayer = new TileLayer({
   source: new OSM()
 });
 
-const markerLayer = new VectorLayer({
-  title: "Flood markers",
+const markerLayerNational = new VectorLayer({
+  title: "Flood markers national",
   source: new VectorSource({
   }),
   style: styleModerate
 });
 
-const vectorSource = markerLayer.getSource();
+const markerLayerLocal = new VectorLayer({
+  title: "Flood markers local",
+  source: new VectorSource({
+  }),
+  style: styleModerate
+});
+
+const markerSourceNational = markerLayerNational.getSource();
+const markerSourceLocal = markerLayerLocal.getSource();
 
 const ukSource = new VectorSource({
   url: 'data/geojson/uk.geojson',
@@ -88,7 +95,8 @@ const map = new Map({
       showLabels: true,
       wrapX: false,
     }),
-    markerLayer,
+    markerLayerLocal,
+    markerLayerNational,
     ukLayer
   ],
   view: view
@@ -104,7 +112,11 @@ ukSource.on("featuresloadend", function () {
   zoomUK(getPadding());
 });
 
-vectorSource.on('addfeature', function (e) {
+markerSourceNational.on('addfeature', function (e) {
+  pulse(e.feature);
+});
+
+markerSourceLocal.on('addfeature', function (e) {
   pulse(e.feature);
 });
 
@@ -112,6 +124,20 @@ $(window).on("resize", function () {
   // No zoom adjustment when inspecting a location
   if (!localView) {
     zoomUK(getPadding());
+  }
+});
+
+$(window).on("home", function () {
+  // No zoom adjustment when inspecting a location
+  localView = false;
+  zoomUK(getPadding());
+});
+
+$(window).on("location", function (e, data) {
+  if (localView) {
+    showNational();
+  } else {
+    showLocal(e, data);
   }
 });
 
@@ -127,9 +153,9 @@ $.ajax({
     } else {
       apiFloodData = response.items;
       // Use item count to set pulseInterval
-      pulseInterval = Math.round(flashDuration * apiFloodData.length/100);
+      pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
       // Clone array to persist data in original
-      updateMarkers([...apiFloodData]);
+      updateMarkers([...apiFloodData], false);
     }
   });
 
@@ -142,45 +168,85 @@ function getPadding() {
 function zoomUK(padding) {
   const feature = ukSource.getFeatures()[0];
   const polygon = feature.getGeometry();
-  view.fit(polygon, { padding: padding, duration: fitViewDuration });
+  view.fit(polygon, { 
+    padding: padding, 
+    duration: fitViewDuration,
+    easing: easeOut
+  });
 }
 
-// Reset markers to initial state
-function resetMarkers() {
-  // Clone array to persist data in original
-  updateMarkers([...apiFloodData]);
+function showLocal(e, data) {
+  // Get event data
+  const items = data.items;
+
+  // Clear existing markers
+  markerSourceLocal.clear();
+
+  // Switch to local view mode
+  localView = true;
+  markerLayerLocal.setVisible(true);
+  markerLayerNational.setVisible(false);
+  
+  // Show only markers for locality
+  updateMarkers(items, true);
+
+  // Zoom to locality
+  view.fit(markerSourceLocal.getExtent(), {
+    size: map.getSize(),
+    padding: [100, 100, 100, 100],
+    duration: zoomLocalDuration,
+    easing: easeOut,
+    maxZoom: 16
+  });
+}
+
+function showNational() {
+  // Switch to national view mode
+  localView = false;
+  // Show appropriate markers
+  markerLayerNational.setVisible(true);
+  markerLayerLocal.setVisible(false);
+  // Adjust view to encompass UK
+  zoomUK(getPadding());
 }
 
 // Stagger process of adding markers
-function updateMarkers(items) {
-  if (items.length) {
+function updateMarkers(items, local) {
+  // If local, add markers immediately, else stagger
+  if (local) {
+    items.forEach(item => {
+      addMarker(items.shift(), local);
+    });
+  } else if (items.length) {
     // Remove first item after adding to map
-    addMarker(items.shift());
+    addMarker(items.shift(), local);
     // Recursive call with updated array - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(updateMarkers, markerDelay, items);
+    let markerInterval = setTimeout(updateMarkers, markerDelay, items, local);
   }
 }
 
-function addMarker(markerData) {
+function addMarker(markerData, local) {
 
-  let coords = floodAreas[markerData.floodArea.notation];
+  const coords = floodAreas[markerData.floodArea.notation];
+  const source = local ? markerSourceLocal : markerSourceNational;
 
   if (coords) {
-    let severity = markerData.severity; // eg "Flood warning"
-    let severityLevel = markerData.severityLevel;
-    let location = markerData.description;
-    let feature = new Feature({
+    const severity = markerData.severity; // eg "Flood warning"
+    const severityLevel = markerData.severityLevel;
+    const location = markerData.description;
+    const feature = new Feature({
       geometry: new Point(coords),
       type: severity,
       level: severityLevel,
-      name: location
+      name: location,
+      local: local
     });
 
     if (severityLevel < 3) {
       feature.setStyle(styleSevere);
     }
     // Add updated
-    vectorSource.addFeature(feature);
+    source.addFeature(feature);
   } else {
     console.log(markerData.floodArea.notation);
   }
@@ -192,7 +258,10 @@ function pulse(feature) {
 }
 
 function flash(feature) {
-  if (!localView) {
+  // Markers should flash only for appropriate view mode (local/national)
+  const shouldFlash = feature.getProperties().local === localView;
+
+  if (shouldFlash) {
     const start = Date.now();
     const flashGeom = feature.getGeometry().clone();
     const listenerKey = tileLayer.on('postrender', animate);
