@@ -127,16 +127,17 @@ $(window).on("resize", function () {
   }
 });
 
-$(window).on("click", function () {
-  const event = new CustomEvent('changeLocation', { detail: "Hello from toggleView event" });
-  this.dispatchEvent(event);
+$(window).on("home", function () {
+  // No zoom adjustment when inspecting a location
+  localView = false;
+  zoomUK(getPadding());
 });
 
-$(window).on("locationEvent", function (e) {
+$(window).on("location", function (e, data) {
   if (localView) {
     showNational();
   } else {
-    showLocal(e);
+    showLocal(e, data);
   }
 });
 
@@ -174,9 +175,9 @@ function zoomUK(padding) {
   });
 }
 
-function showLocal(e) {
+function showLocal(e, data) {
   // Get event data
-  let items = e.detail.items;
+  const items = data.items;
 
   // Clear existing markers
   markerSourceLocal.clear();
