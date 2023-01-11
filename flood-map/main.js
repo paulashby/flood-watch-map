@@ -15,7 +15,7 @@ import { unByKey } from 'ol/Observable.js';
 useGeographic();
 
 const derbyish = [-1.4746, 52.9225];
-const markerDelay = 100;
+const markerDelay = 0; // Let the event loop delay markers
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
@@ -31,22 +31,13 @@ const ukStyle = new Style({
   })
 });
 
-const circleModerate = new CircleStyle({
+const markerCircle = new CircleStyle({
   radius: 8,
-  fill: new Fill({ color: 'rgba(255, 182, 0, 0.75)' }),
+  fill: new Fill({ color: 'rgba(100, 100, 100, 0.75)' }),
 });
 
-const circleSevere = new CircleStyle({
-  radius: 8,
-  fill: new Fill({ color: 'rgba(255, 0, 0, 0.75)' }),
-});
-
-const styleModerate = new Style({
-  image: circleModerate
-});
-
-const styleSevere = new Style({
-  image: circleSevere
+const markerStyle = new Style({
+  image: markerCircle
 });
 
 const tileLayer = new TileLayer({
@@ -57,14 +48,14 @@ const markerLayerNational = new VectorLayer({
   title: "Flood markers national",
   source: new VectorSource({
   }),
-  style: styleModerate
+  style: markerStyle
 });
 
 const markerLayerLocal = new VectorLayer({
   title: "Flood markers local",
   source: new VectorSource({
   }),
-  style: styleModerate
+  style: markerStyle
 });
 
 const markerSourceNational = markerLayerNational.getSource();
@@ -107,7 +98,10 @@ let apiFloodData = [];
 let pulseInterval = 0; // Value is reset when number of markers is known
 // Toggle when user is inspecting a location
 let localView = false;
+let filterBy = false;
 
+
+// Event handlers
 ukSource.on("featuresloadend", function () {
   zoomUK(getPadding());
 });
@@ -128,13 +122,40 @@ $(window).on("resize", function () {
 });
 
 $(window).on("home", function () {
-  showNational();
+  // Switch to national view mode
+  localView = false;
+  // Show appropriate markers
+  updateMarkers([...apiFloodData]);
+  // Adjust view to encompass UK
+  zoomUK(getPadding());
 });
 
 $(window).on("location", function (e, data) {
-  showLocal(e, data);
+  // Get items to include
+  const items = data.items;
+  // Switch to local view mode
+  localView = true;
+  // Show appropriate markers
+  updateMarkers(items);
+
+  // Zoom to locality
+  view.fit(markerSourceLocal.getExtent(), {
+    size: map.getSize(),
+    padding: [100, 100, 100, 100],
+    duration: zoomLocalDuration,
+    easing: easeOut,
+    maxZoom: 16
+  });
 });
 
+$(window).on("filterMarkers", function (e, data) {
+  // Load all markers
+  filterBy = data.severity;
+  updateMarkers([...apiFloodData]);
+});
+
+
+// Get flood data and update markers
 $.ajax({
   url: queryURL,
   method: "GET"
@@ -149,7 +170,7 @@ $.ajax({
       // Use item count to set pulseInterval
       pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
       // Clone array to persist data in original
-      updateMarkers([...apiFloodData], false);
+      updateMarkers([...apiFloodData]);
     }
   });
 
@@ -162,87 +183,78 @@ function getPadding() {
 function zoomUK(padding) {
   const feature = ukSource.getFeatures()[0];
   const polygon = feature.getGeometry();
-  view.fit(polygon, { 
-    padding: padding, 
+  view.fit(polygon, {
+    padding: padding,
     duration: fitViewDuration,
     easing: easeOut
   });
 }
 
-function showLocal(e, data) {
-  // Get event data
-  const items = data.items;
-
-  // Clear existing markers
-  markerSourceLocal.clear();
-
-  // Switch to local view mode
-  localView = true;
-  markerLayerLocal.setVisible(true);
-  markerLayerNational.setVisible(false);
-  
-  // Show only markers for locality
-  updateMarkers(items, true);
-
-  // Zoom to locality
-  view.fit(markerSourceLocal.getExtent(), {
-    size: map.getSize(),
-    padding: [100, 100, 100, 100],
-    duration: zoomLocalDuration,
-    easing: easeOut,
-    maxZoom: 16
-  });
-}
-
-function showNational() {
-  // Switch to national view mode
-  localView = false;
-  // Show appropriate markers
-  markerLayerNational.setVisible(true);
-  markerLayerLocal.setVisible(false);
-  // Adjust view to encompass UK
-  zoomUK(getPadding());
-}
-
 // Stagger process of adding markers
-function updateMarkers(items, local) {
-  // If local, add markers immediately, else stagger
-  if (local) {
+function updateMarkers(items) {
+  // Clear existing markers so we can start from a clean sheet
+  clearMarkers();
+
+  if (localView) {
+    // Add markers simultaneously
     items.forEach(item => {
-      addMarker(items.shift(), local);
+      addMarker(items.shift());
     });
   } else if (items.length) {
-    // Remove first item after adding to map
-    addMarker(items.shift(), local);
-    // Recursive call with updated array - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(updateMarkers, markerDelay, items, local);
+    // Add marker to map and remove from array
+    addMarker(items.shift());
+    // Add markers iteratively - slight delay adds sense of dynamism
+    let markerInterval = setTimeout(addMarkers, markerDelay, items);
   }
 }
 
-function addMarker(markerData, local) {
+function addMarkers(items) {
+  addMarker(items.shift());
+  // Recursive call with updated array - slight delay adds sense of dynamism
+  let markerInterval = setTimeout(addMarkers, markerDelay, items);
+}
 
-  const coords = floodAreas[markerData.floodArea.notation];
-  const source = local ? markerSourceLocal : markerSourceNational;
+// Remove existing markers
+function clearMarkers() {
+  markerSourceLocal.forEachFeature(function (feature) {
+    clearInterval(feature.pulseTimer);
+  });
+  markerSourceNational.forEachFeature(function (feature) {
+    clearInterval(feature.pulseTimer);
+  });
+  markerSourceLocal.clear();
+  markerSourceNational.clear();
+}
 
-  if (coords) {
-    const severity = markerData.severity; // eg "Flood warning"
-    const severityLevel = markerData.severityLevel;
-    const location = markerData.description;
-    const feature = new Feature({
-      geometry: new Point(coords),
-      type: severity,
-      level: severityLevel,
-      name: location,
-      local: local
-    });
+function addMarker(markerData) {
 
-    if (severityLevel < 3) {
-      feature.setStyle(styleSevere);
+  if (markerData) {
+    const coords = floodAreas[markerData.floodArea.notation];
+    const source = localView ? markerSourceLocal : markerSourceNational;
+
+    if (coords) {
+      const severityLevel = markerData.severityLevel;
+
+      if (!filterBy || filterBy === severityLevel) {
+        // Marker is correct level is filtering is applied
+        const severity = markerData.severity; // eg "Flood warning"
+        const location = markerData.description;
+        const feature = new Feature({
+          geometry: new Point(coords),
+          type: severity,
+          level: severityLevel,
+          name: location,
+          local: localView
+        });
+
+        // Add updated
+        source.addFeature(feature);
+      }
+
+    } else {
+      console.log(markerData.floodArea.notation);
     }
-    // Add updated
-    source.addFeature(feature);
-  } else {
-    console.log(markerData.floodArea.notation);
+
   }
 }
 
@@ -253,7 +265,8 @@ function pulse(feature) {
 
 function flash(feature) {
   // Markers should flash only for appropriate view mode (local/national)
-  const shouldFlash = feature.getProperties().local === localView;
+  const passesFilter = !filterBy || filterBy === feature.getProperties().level;
+  const shouldFlash = passesFilter && feature.getProperties().local === localView;
 
   if (shouldFlash) {
     const start = Date.now();
