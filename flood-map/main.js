@@ -130,7 +130,7 @@ $(window).on("location", function (e, data) {
   // Zoom to locality
   view.fit(markerSource.getExtent(), {
     size: map.getSize(),
-    padding: [100, 100, 100, 100],
+    padding: getPadding(),
     duration: zoomLocalDuration,
     easing: easeOut,
     maxZoom: 16
