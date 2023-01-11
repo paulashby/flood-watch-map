@@ -19,6 +19,8 @@ const markerDelay = 0; // Let the event loop delay markers
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
+// const mapGuide = document.querySelector(".main"); // querySelector allows us to use getBoundingClientRect()
+const mapGuide = $(".main");
 
 const view = new View({
   center: derbyish,
@@ -161,10 +163,18 @@ $.ajax({
     }
   });
 
-// Needs implementing
+// Get padding based on hidden DOM element
 function getPadding() {
-  // Get padding - probably based on a hidden DOM element
-  return [200, 0, 0, 0];
+  const offset = mapGuide.offset();
+  const windowWidth = $(window).width();
+  const windowHeight = $(window).height();
+  const guideWidth = mapGuide.width();
+  const guideHeight = mapGuide.height();
+  const paddingTop = offset.top;
+  const paddingRight = windowWidth - (offset.left + guideWidth);
+  const paddingBottom = windowHeight - (offset.top + guideHeight);
+  const paddingLeft = offset.left;
+  return [paddingTop, paddingRight, paddingBottom, paddingLeft];
 }
 
 function zoomUK(padding) {
