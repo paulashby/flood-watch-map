@@ -44,22 +44,14 @@ const tileLayer = new TileLayer({
   source: new OSM()
 });
 
-const markerLayerNational = new VectorLayer({
+const markerLayer = new VectorLayer({
   title: "Flood markers national",
   source: new VectorSource({
   }),
   style: markerStyle
 });
 
-const markerLayerLocal = new VectorLayer({
-  title: "Flood markers local",
-  source: new VectorSource({
-  }),
-  style: markerStyle
-});
-
-const markerSourceNational = markerLayerNational.getSource();
-const markerSourceLocal = markerLayerLocal.getSource();
+const markerSource = markerLayer.getSource();
 
 const ukSource = new VectorSource({
   url: 'data/geojson/uk.geojson',
@@ -86,8 +78,7 @@ const map = new Map({
       showLabels: true,
       wrapX: false,
     }),
-    markerLayerLocal,
-    markerLayerNational,
+    markerLayer,
     ukLayer
   ],
   view: view
@@ -106,11 +97,7 @@ ukSource.on("featuresloadend", function () {
   zoomUK(getPadding());
 });
 
-markerSourceNational.on('addfeature', function (e) {
-  pulse(e.feature);
-});
-
-markerSourceLocal.on('addfeature', function (e) {
+markerSource.on('addfeature', function (e) {
   pulse(e.feature);
 });
 
@@ -139,7 +126,7 @@ $(window).on("location", function (e, data) {
   updateMarkers(items);
 
   // Zoom to locality
-  view.fit(markerSourceLocal.getExtent(), {
+  view.fit(markerSource.getExtent(), {
     size: map.getSize(),
     padding: [100, 100, 100, 100],
     duration: zoomLocalDuration,
@@ -216,21 +203,16 @@ function addMarkers(items) {
 
 // Remove existing markers
 function clearMarkers() {
-  markerSourceLocal.forEachFeature(function (feature) {
+  markerSource.forEachFeature(function (feature) {
     clearInterval(feature.pulseTimer);
   });
-  markerSourceNational.forEachFeature(function (feature) {
-    clearInterval(feature.pulseTimer);
-  });
-  markerSourceLocal.clear();
-  markerSourceNational.clear();
+  markerSource.clear();
 }
 
 function addMarker(markerData) {
 
   if (markerData) {
     const coords = floodAreas[markerData.floodArea.notation];
-    const source = localView ? markerSourceLocal : markerSourceNational;
 
     if (coords) {
       const severityLevel = markerData.severityLevel;
@@ -248,7 +230,7 @@ function addMarker(markerData) {
         });
 
         // Add updated
-        source.addFeature(feature);
+        markerSource.addFeature(feature);
       }
 
     } else {
