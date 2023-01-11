@@ -19,7 +19,6 @@ const markerDelay = 0; // Let the event loop delay markers
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
-// const mapGuide = document.querySelector(".main"); // querySelector allows us to use getBoundingClientRect()
 const mapGuide = $(".main");
 
 const view = new View({
@@ -103,12 +102,7 @@ markerSource.on('addfeature', function (e) {
   pulse(e.feature);
 });
 
-$(window).on("resize", function () {
-  // No zoom adjustment when inspecting a location
-  if (!localView) {
-    zoomUK(getPadding());
-  }
-});
+$(window).on("resize chartRendered", resizeMap);
 
 $(window).on("home", function () {
   // Switch to national view mode
@@ -175,6 +169,13 @@ function getPadding() {
   const paddingBottom = windowHeight - (offset.top + guideHeight);
   const paddingLeft = offset.left;
   return [paddingTop, paddingRight, paddingBottom, paddingLeft];
+}
+
+function resizeMap() {
+  // No zoom adjustment when inspecting a location
+  if (!localView) {
+    zoomUK(getPadding());
+  }
 }
 
 function zoomUK(padding) {
