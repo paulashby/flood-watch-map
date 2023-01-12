@@ -1,0 +1,29 @@
+.btns {
+    display: flex;
+    gap: 10px;
+    left: 5rem;
+    position: relative;
+    top: 5rem;
+    width: calc(100% - 10rem);
+    z-index: 2
+}
+
+button {
+    font-size: 1.5rem;
+    padding: 1rem;    
+}
+
+.main {
+    border: dotted 4px #000;
+    visibility: hidden;
+    height: 80vh;
+    left: 40vw;
+    position: absolute;
+    top: 10vh;
+    width: 20vw;
+    z-index: 2;
+}
+
+.target .main {
+    visibility: visible;
+}

@@ -1,27 +1,7 @@
-#map .ol-layers {
+.colourise #map .ol-layers {
     background-color: forestgreen;
 }
 
-#map .ol-layer:first-child {
+.colourise #map .ol-layer:first-child {
     mix-blend-mode: color-burn; 
-}
-
-.main {
-    background-color: coral;
-    height: calc(100% - 20px);
-    left: 10px;
-    opacity: 0.5;
-    position: absolute;
-    top: 10px;
-    width: calc(100% - 20px);
-    z-index: 2;
-}
-
-@media screen and (min-width: 1500px) {
-    .main {
-        height: 800px;
-        left: 200px;
-        top: 200px;
-        width: 1200px;
-    }    
 }

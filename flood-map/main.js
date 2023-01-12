@@ -91,6 +91,8 @@ let pulseInterval = 0; // Value is reset when number of markers is known
 // Toggle when user is inspecting a location
 let localView = false;
 let filterBy = false;
+// Demo
+let showPoly = false;
 
 
 // Event handlers
@@ -136,6 +138,15 @@ $(window).on("filterMarkers", function (e, data) {
   filterBy = data.severity;
   updateMarkers([...apiFloodData]);
 });
+
+$(window).on("showPolygon", function () {
+  if (showPoly) {
+    ukStyle.getFill().setColor('rgba(0, 0, 0, 0)');
+  } else {
+    ukStyle.getFill().setColor('rgba(0, 0, 255, 0.6)');
+  }
+  showPoly = !showPoly;
+})
 
 
 // Get flood data and update markers
