@@ -33,10 +33,12 @@ btnsElmt.append(colourBtn);
 const filterBy = false;
 
 filterBtn.on("click", function (e) {
-    filterBy = filterBy === false ? 4 : false;
+    $(this).hasClass("filter")
+    const filterBy = $(this).hasClass("filter") ? false : 2;
     $(window).trigger("filterMarkers", [{
         severity: filterBy
     }]);
+    $(this).toggleClass("filter");
 });
 
 
