@@ -243,7 +243,6 @@ function clearMarkers() {
 }
 
 function addMarker(markerData) {
-console.count("add");
   if (markerData) {
     if (localData) {
       demoLocalData(markerData);
