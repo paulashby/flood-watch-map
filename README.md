@@ -1,5 +1,5 @@
 # flood-watch-map
-Map making use of the OpenLayers library for use on [Flood Watch web app](https://github.com/Sam010000101/flood-watch). 
+Map making use of the OpenLayers library for use on the [Flood Watch web app](https://github.com/Sam010000101/flood-watch). 
 
 ![html 5](https://img.shields.io/badge/html-5-blue)
 ![Valid HTML](https://img.shields.io/badge/valid-HTML-green)
@@ -8,12 +8,19 @@ Map making use of the OpenLayers library for use on [Flood Watch web app](https:
 ![jQuery 3](https://img.shields.io/badge/jQuery-4-yellow)
 ![OpenLayers 7](https://img.shields.io/badge/OpenLayers-7-yellow)
 
-Data is sourced from the [Environment Agency (EA) Real Time flood-monitoring API](https://environment.data.gov.uk/flood-monitoring/doc/reference) via jQuery AJAX calls. The returned positional data is fed into an [OpenLayers](https://openlayers.org/) map featuring an [Open Street Map](https://www.openstreetmap.org/) tile layer. This can be zoomed and updated, allowing dynamic flood data to be displayed in response to user input.
+Data is sourced from the [Environment Agency (EA) Real Time flood-monitoring API](https://environment.data.gov.uk/flood-monitoring/doc/reference) via jQuery AJAX calls. The returned positional data is fed into an [OpenLayers](https://openlayers.org/) map featuring an [Open Street Map](https://www.openstreetmap.org/) tile layer and appears as marker dots. The map can be zoomed and updated, allowing dynamic flood data to be displayed in response to user input.
 
 ## Challenges
 The floods endpoint of the EA API does not directly return geographical coordinates. These are available via API links included in the response, but retrieving coordinates from each of these proved to be a considerabe bottle neck. In order to improve loading times, the flood area coordinate data was [retrieved](https://github.com/paulashby/flood-watch-map/blob/main/flood-map/flood-areas.js) and [stored locally](https://github.com/paulashby/flood-watch-map/blob/main/flood-map/data/flood-areas.js). This proved to be a successful strategy, and allowed complete control over the rate at which individual markers were added.
 
 A further challenge arose due to the requirement that the OpenLayers map should work as a full-page element. Framing the UK so it remained clear of the surrounding page elements was a tricky problem. Fortunately, the [OpenLayers API](https://openlayers.org/en/latest/apidoc/) provides a [fit](https://openlayers.org/en/latest/apidoc/module-ol_View-View.html#fit) method that allows a polygon to be framed in the view. This accepts padding values which determine the offset of the polygon from the edge of the view. A hidden HTML element was added to the page purely to provide these padding values, and ChatGPT provided a highly optimised [geojason object](https://github.com/paulashby/flood-watch-map/blob/main/flood-map/data/geojson/uk.geojson) of approximate UK bounds as a source for the polygon. This worked very nicely, with the scale and position of the UK portion of the map exactly matching that of the responsive HTML element. 
+
+![Screenshot](flood-map/images/polygon.png)
+<figcaption>
+
+*The image above is an illustration of how this works: the dotted rectangle is the HTML element. The geojason polygon of the UK is coloured red. Both these elements are hidden in practice and are used only to position the map. Notice how the polygon is scaled and positioned to fit within the HTML element, and the corresponding map area (the UK) respects the position of the polygon.*
+
+</figcaption>
 
 ## Usage
 Visit the [deployed Flood Watch app](https://sam010000101.github.io/flood-watch/) to see the map in action. Enter a location to zoom, clear the search field to revert the view, Use the provided buttons to filter by severity.
@@ -25,3 +32,11 @@ Thanks to [the Trilogy Skills Bootcamp in Front-End Web Development](https://ski
 * Sam Brooke
 * Damien Nsoh Ayine
 * Dayo Adekunle
+
+
+![Screenshot](flood-map/images/map.png)
+<figcaption>
+
+*The map colourised as it appears in the [app](https://sam010000101.github.io/flood-watch/).*
+
+</figcaption>
