@@ -18,7 +18,6 @@ $.ajax({
                 floodAreas[key] = coords;
             });
         }
-        // Coords all stored - proceed with loading markers
-        // $(window).trigger("areasLoaded");
+        // Coords all stored - log to be stored locally
         console.log(JSON.stringify(floodAreas));
     });
