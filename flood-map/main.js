@@ -87,12 +87,15 @@ const map = new Map({
 
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
-let pulseInterval = 0; // Value is reset when number of markers is known
+let pulseInterval = 2000; // Value is reset when number of markers is known
 // Toggle when user is inspecting a location
 let localView = false;
 let filterBy = false;
-// Demo
+
+// Demo variables
 let showPoly = false;
+let localData = true;
+let useDelay = false;
 
 
 // Event handlers
@@ -143,30 +146,38 @@ $(window).on("showPolygon", function () {
   if (showPoly) {
     ukStyle.getFill().setColor('rgba(0, 0, 0, 0)');
   } else {
-    ukStyle.getFill().setColor('rgba(0, 0, 255, 0.6)');
+    ukStyle.getFill().setColor('rgba(255, 0, 0, 0.6)');
   }
+  ukLayer.changed();
   showPoly = !showPoly;
-})
+});
 
+$(window).on("getData", function (e, data) {
+  localData = data.local;
+  clearMarkers();
+  // Get flood data and update markers
+  $.ajax({
+    url: "https://environment.data.gov.uk/flood-monitoring/id/floods/",
+    method: "GET"
+  })
+    .then(function (response) {
 
-// Get flood data and update markers
-$.ajax({
-  url: queryURL,
-  method: "GET"
-})
-  .then(function (response) {
+      if (!response.items.length) {
+        // No data
+        console.log("No data available");
+      } else {
+        apiFloodData = response.items;
+        // Use item count to set pulseInterval
+        pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
+        // Clone array to persist data in original
+        updateMarkers([...apiFloodData]);
+      }
+    });
+});
 
-    if (!response.items.length) {
-      // No data
-      console.log("No data available");
-    } else {
-      apiFloodData = response.items;
-      // Use item count to set pulseInterval
-      pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
-      // Clone array to persist data in original
-      updateMarkers([...apiFloodData]);
-    }
-  });
+$(window).on("toggleDelay", function () {
+  useDelay = !useDelay;
+});
 
 // Get padding based on hidden DOM element
 function getPadding() {
@@ -204,7 +215,7 @@ function updateMarkers(items) {
   // Clear existing markers so we can start from a clean sheet
   clearMarkers();
 
-  if (localView) {
+  if (localView || !useDelay) {
     // Add markers simultaneously
     items.forEach(item => {
       addMarker(items.shift());
@@ -232,34 +243,75 @@ function clearMarkers() {
 }
 
 function addMarker(markerData) {
-
+console.count("add");
   if (markerData) {
-    const coords = floodAreas[markerData.floodArea.notation];
-
-    if (coords) {
-      const severityLevel = markerData.severityLevel;
-
-      if (!filterBy || filterBy === severityLevel) {
-        // Marker is correct level is filtering is applied
-        const severity = markerData.severity; // eg "Flood warning"
-        const location = markerData.description;
-        const feature = new Feature({
-          geometry: new Point(coords),
-          type: severity,
-          level: severityLevel,
-          name: location,
-          local: localView
-        });
-
-        // Add updated
-        markerSource.addFeature(feature);
-      }
-
+    if (localData) {
+      demoLocalData(markerData);
     } else {
-      console.log(markerData.floodArea.notation);
+      demoRemoteData(markerData);
+    }
+  }
+}
+
+function demoLocalData(markerData) {
+
+  const coords = floodAreas[markerData.floodArea.notation];
+
+  if (coords) {
+    const severityLevel = markerData.severityLevel;
+
+    if (!filterBy || filterBy === severityLevel) {
+      // Marker is correct level if filtering is applied
+      const severity = markerData.severity; // eg "Flood warning"
+      const location = markerData.description;
+      const feature = new Feature({
+        geometry: new Point(coords),
+        type: severity,
+        level: severityLevel,
+        name: location,
+        local: localView
+      });
+      // Add updated
+      markerSource.addFeature(feature);
     }
 
+  } else {
+    console.log(markerData.floodArea.notation);
   }
+}
+function demoRemoteData(markerData) {
+
+  const positionURL = markerData['@id'].replace("http://", "https://");
+
+  $.ajax({
+    url: positionURL,
+    method: "GET"
+  })
+    .then(function (posResponse) {
+
+      if (!filterBy || filterBy === severityLevel) {
+        if (!posResponse) {
+          console.log("Could not establish position for " + markerData.description);
+        } else {
+          // Push to features array to be added to map by postrender callback
+          const lon = posResponse.items.floodArea.long;
+          const lat = posResponse.items.floodArea.lat;
+          const severity = posResponse.items.severity; // eg "Flood warning"
+          const severityLevel = posResponse.items.severityLevel;
+          const location = posResponse.items.description;
+          const feature = new Feature({
+            geometry: new Point([lon, lat]),
+            type: severity,
+            level: severityLevel,
+            name: location,
+            local: localView
+          });
+
+          // Add updated
+          markerSource.addFeature(feature);
+        }
+      }
+    });
 }
 
 function pulse(feature) {
