@@ -31,6 +31,7 @@ const ukStyle = new Style({
     color: 'rgba(0, 0, 0, 0)',
   })
 });
+ukStyle.getFill().setColor('rgba(255, 0, 0, 0.6)');
 
 const markerCircle = new CircleStyle({
   radius: 8,
@@ -55,7 +56,7 @@ const markerLayer = new VectorLayer({
 const markerSource = markerLayer.getSource();
 
 const ukSource = new VectorSource({
-  url: 'data/geojson/uk.geojson',
+  url: 'data/geojson/england.geojson',
   format: new GeoJSON(),
 });
 
