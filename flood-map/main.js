@@ -31,7 +31,6 @@ const ukStyle = new Style({
     color: 'rgba(0, 0, 0, 0)',
   })
 });
-ukStyle.getFill().setColor('rgba(255, 0, 0, 0.6)');
 
 const markerCircle = new CircleStyle({
   radius: 8,
