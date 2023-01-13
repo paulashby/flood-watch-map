@@ -1,0 +1,16 @@
+{
+    "type": "Feature",
+    "id": "England",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [2, 55.48],
+          [-6, 55.48],
+          [-6, 49.75],
+          [2, 49.75],
+          [2, 55.48]
+        ]
+      ]
+    }
+}

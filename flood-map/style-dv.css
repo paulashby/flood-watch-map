@@ -6,7 +6,7 @@
     mix-blend-mode: color-burn; 
 }
 
-.main {
+.uk-bounds {
     border: dotted 4px #000;
     height: 80vh;
     left: 10vw;
