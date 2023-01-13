@@ -28,7 +28,7 @@ Visit the [deployed Flood Watch app](https://sam010000101.github.io/flood-watch/
 ![Screenshot](flood-map/images/map.png)
 <figcaption>
 
-*The map colourised as it appears in the [app](https://sam010000101.github.io/flood-watch/).*
+*The colourised map as it appears in the [app](https://sam010000101.github.io/flood-watch/).*
 
 </figcaption>
 
@@ -36,11 +36,13 @@ Visit the [deployed Flood Watch app](https://sam010000101.github.io/flood-watch/
 Thanks to the following:
 [the Trilogy Skills Bootcamp in Front-End Web Development](https://skillsforlife.edx.org/coding/frontend/landing/?s=Google-Unbranded&pkw=web%20design%20training&pcrid=624628533241&pmt=p&utm_source=google&utm_medium=cpc&utm_campaign=GGL%7CSKILLS-FOR-LIFE%7CSEM%7CCODING%7C-%7COFL%7CTIER-1%7CALL%7CNBD-G%7CBMM%7CPrimary%7CSubject-Matter&utm_term=web%20design%20training&s=google&k=web%20design%20training&utm_adgroupid=140443158663&utm_locationphysicalms=1006886&utm_matchtype=p&utm_network=g&utm_device=c&utm_content=624628533241&utm_placement=&gclid=Cj0KCQjwqc6aBhC4ARIsAN06NmMdwBRSe3BLeaChkukN5Bbqb18220k1ku9TB2o9tzsX0xYUc-dlRWgaAuyvEALw_wcB&gclsrc=aw.ds) for giving us the opportunity to work together as a team. Thanks also to Philip Howley, the course Instructor and Brooke Love, my personal teaching assistant.
 
-All [contributors](https://github.com/openlayers/openlayers/graphs/contributors) to the [OpenLayers library](https://github.com/openlayers/openlayers).
+All [contributors](https://github.com/openlayers/openlayers/graphs/contributors) to the [OpenLayers library](https://github.com/openlayers/openlayers). (Please see [license](https://www.tldrlegal.com/l/freebsd)).
 
 The [Environment Agency (EA) Real Time flood-monitoring API](https://environment.data.gov.uk/flood-monitoring/doc/reference). This uses Environment Agency flood and river level data from the real-time data API (Beta). (Please see [license](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)).
 
-## Contributors on the [Flood Watch web app](https://github.com/Sam010000101/flood-watch) itself:
+OpenStreetMap® is open data, licensed under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](https://osmfoundation.org/) (OSMF).
+
+## Contributors to the [Flood Watch web app](https://github.com/Sam010000101/flood-watch) itself:
 * Sam Brooke
 * Damien Nsoh Ayine
 * Dayo Adekunle
