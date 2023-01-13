@@ -1,11 +1,8 @@
 # flood-watch-map
 Map making use of the OpenLayers library for use on the [Flood Watch web app](https://github.com/Sam010000101/flood-watch). 
 
-![html 5](https://img.shields.io/badge/html-5-blue)
-![Valid HTML](https://img.shields.io/badge/valid-HTML-green)
-![Valid CSS](https://img.shields.io/badge/valid-CSS-green)
-![JavaScript ES6](https://img.shields.io/badge/javascript-ES6-yellow)
-![jQuery 3](https://img.shields.io/badge/jQuery-4-yellow)
+![JavaScript ES6](https://img.shields.io/badge/javascript-ES6-blue)
+![jQuery 3](https://img.shields.io/badge/jQuery-4-green)
 ![OpenLayers 7](https://img.shields.io/badge/OpenLayers-7-yellow)
 
 Data is sourced from the [Environment Agency (EA) Real Time flood-monitoring API](https://environment.data.gov.uk/flood-monitoring/doc/reference) via jQuery AJAX calls. The returned positional data is fed into an [OpenLayers](https://openlayers.org/) map featuring an [Open Street Map](https://www.openstreetmap.org/) tile layer and appears as marker dots. The map can be zoomed and updated, allowing dynamic flood data to be displayed in response to user input.
