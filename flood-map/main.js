@@ -19,7 +19,7 @@ const markerDelay = 0; // Let the event loop delay markers
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
-const mapGuide = $(".uk-bounds");
+const mapGuide = $(".eng-bounds");
 
 const view = new View({
   center: derbyish,
