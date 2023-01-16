@@ -15,7 +15,7 @@ A further challenge arose due to the requirement that the OpenLayers map should 
 ![Screenshot](flood-map/images/polygon.png)
 <figcaption>
 
-*The image above is an illustration of how this works: the dotted rectangle is the HTML element. The geojason polygon of the UK is coloured red. Both these elements are hidden in practice and are used only to position the map. Notice how the polygon is scaled and positioned to fit within the HTML element, and the corresponding map area (the UK) respects the position of the polygon.*
+*The image above is an illustration of how this works: the dotted rectangle is the HTML element. The geojson polygon of the UK is coloured red. Both these elements are hidden in practice and are used only to position the map. Notice how the polygon is scaled and positioned to fit within the HTML element, and the corresponding map area (the UK) respects the position of the polygon.*
 
 </figcaption>
 
