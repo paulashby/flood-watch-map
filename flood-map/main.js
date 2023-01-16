@@ -298,8 +298,8 @@ function flash(feature) {
       }
       const vectorContext = getVectorContext(event);
       const elapsedRatio = elapsed / flashDuration;
-      // radius will be 5 at start and 25 at end.
-      const radius = easeOut(elapsedRatio) * 22 + 3;
+      // radius will be 5 at start and 30 at end.
+      const radius = easeOut(elapsedRatio) * 25 + 5;
       const opacity = easeOut(1 - elapsedRatio);
 
       const style = new Style({
