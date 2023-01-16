@@ -19,7 +19,14 @@ const markerDelay = 0; // Let the event loop delay markers
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
-const mapGuide = $(".uk-bounds");
+const mapGuide = $(".eng-bounds");
+
+// Constants for calculating marker sizes
+const maxRadius = 6;
+const minRadius = 3;
+const rangeStart = 320;
+const rangeEnd = 1054;
+const tenthWorth = 367;
 
 const view = new View({
   center: derbyish,
@@ -33,7 +40,7 @@ const ukStyle = new Style({
 });
 
 const markerCircle = new CircleStyle({
-  radius: 8,
+  radius: getMarkerRadius(),
   fill: new Fill({ color: 'rgba(100, 100, 100, 0.75)' }),
 });
 
@@ -89,6 +96,7 @@ let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
 let pulseInterval = 0; // Value is reset when number of markers is known
 // Toggle when user is inspecting a location
+const padLocalView = true;
 let localView = false;
 let filterBy = false;
 
@@ -172,10 +180,25 @@ function getPadding() {
 }
 
 function resizeMap() {
-  // No zoom adjustment when inspecting a location
-  if (!localView) {
+  // Check whether to use padding when zooming into a location
+  if (padLocalView || !localView) {
     zoomUK(getPadding());
+    markerCircle.setRadius(getMarkerRadius());
   }
+}
+
+function getMarkerRadius() {  
+  const currWidth = $(window).width();
+
+  if (currWidth < rangeStart) {
+    return minRadius;
+  }
+  if (currWidth > rangeEnd) {
+    return maxRadius;
+  }
+  const widthInRange = currWidth - rangeStart;
+  return minRadius + (widthInRange/tenthWorth);
+
 }
 
 function zoomUK(padding) {
@@ -275,8 +298,8 @@ function flash(feature) {
       }
       const vectorContext = getVectorContext(event);
       const elapsedRatio = elapsed / flashDuration;
-      // radius will be 5 at start and 30 at end.
-      const radius = easeOut(elapsedRatio) * 25 + 5;
+      // radius will be 5 at start and 25 at end.
+      const radius = easeOut(elapsedRatio) * 22 + 3;
       const opacity = easeOut(1 - elapsedRatio);
 
       const style = new Style({

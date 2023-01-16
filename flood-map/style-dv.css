@@ -6,7 +6,7 @@
     mix-blend-mode: color-burn; 
 }
 
-.uk-bounds {
+/* .eng-bounds {
     border: dotted 4px #000;
     height: 80vh;
     left: 10vw;
@@ -14,7 +14,9 @@
     top: 10vh;
     width: 40vw;
     z-index: 2;
-}
+} */
+
+/* 
 
 @media screen and (min-width: 1500px) {
     .main {
@@ -23,4 +25,4 @@
         top: 200px;
         width: 1200px;
     }    
-}
+} */
