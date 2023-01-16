@@ -15,18 +15,51 @@ import { unByKey } from 'ol/Observable.js';
 useGeographic();
 
 const derbyish = [-1.4746, 52.9225];
-const markerDelay = 0; // Let the event loop delay markers
+const markerDelay = 150;
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
 const flashDuration = 3000;
 const mapGuide = $(".eng-bounds");
 
-// Constants for calculating marker sizes
-const maxRadius = 6;
-const minRadius = 3;
-const rangeStart = 320;
-const rangeEnd = 1054;
-const tenthWorth = 367;
+// Use closure from IIFE to contain related constants
+// Change this to getFlashSettings then just settings.defaultRadius where currenlty used
+const updateMarkerRadiusSettings = (function() {
+  // Constants for calculating marker sizes
+  const rangeStart = 320;
+  const rangeEnd = 1054;
+  const range = rangeEnd - rangeStart;
+  const maxMarkerRadius = 8;
+  let minMarkerRadius = Math.floor((maxMarkerRadius / Math.PI) * 2);
+
+  return function () {
+    const currWidth = $(window).width();
+    let markerRadius = minMarkerRadius;
+
+    if (currWidth >= rangeEnd) {
+      markerRadius = maxMarkerRadius;
+    } else if (currWidth >= rangeStart) {
+      const widthInRange = currWidth - rangeStart;
+      const sizeVariation = maxMarkerRadius - minMarkerRadius;
+      const adjFactor = sizeVariation/range;
+      markerRadius = minMarkerRadius + (widthInRange * adjFactor);
+    }
+    // Vairance for 
+    const flashVariance = markerRadius * Math.PI;
+    
+    // Make the update
+    markerRadiusSettings.max = markerRadius;
+    markerRadiusSettings.min = minMarkerRadius;
+    markerRadiusSettings.variance = flashVariance;
+  };
+})();
+
+const markerRadiusSettings = {
+  max: 0,
+  min: 0,
+  variance: 0
+};
+
+updateMarkerRadiusSettings();
 
 const view = new View({
   center: derbyish,
@@ -39,8 +72,9 @@ const ukStyle = new Style({
   })
 });
 
+
 const markerCircle = new CircleStyle({
-  radius: getMarkerRadius(),
+  radius: markerRadiusSettings.max,
   fill: new Fill({ color: 'rgba(100, 100, 100, 0.75)' }),
 });
 
@@ -183,22 +217,9 @@ function resizeMap() {
   // Check whether to use padding when zooming into a location
   if (padLocalView || !localView) {
     zoomUK(getPadding());
-    markerCircle.setRadius(getMarkerRadius());
+    updateMarkerRadiusSettings();
+    markerCircle.setRadius(markerRadiusSettings.max);
   }
-}
-
-function getMarkerRadius() {  
-  const currWidth = $(window).width();
-
-  if (currWidth < rangeStart) {
-    return minRadius;
-  }
-  if (currWidth > rangeEnd) {
-    return maxRadius;
-  }
-  const widthInRange = currWidth - rangeStart;
-  return minRadius + (widthInRange/tenthWorth);
-
 }
 
 function zoomUK(padding) {
@@ -298,8 +319,8 @@ function flash(feature) {
       }
       const vectorContext = getVectorContext(event);
       const elapsedRatio = elapsed / flashDuration;
-      // radius will be 5 at start and 30 at end.
-      const radius = easeOut(elapsedRatio) * 25 + 5;
+      // radius will be markerRadiusSettings.min at start and markerRadiusSettings.variance + markerRadiusSettings.min at end.
+      const radius = easeOut(elapsedRatio) *  markerRadiusSettings.variance + markerRadiusSettings.min;
       const opacity = easeOut(1 - elapsedRatio);
 
       const style = new Style({
