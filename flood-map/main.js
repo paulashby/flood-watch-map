@@ -38,12 +38,16 @@ const updateMarkerRadiusSettings = (function() {
     if (currWidth >= rangeEnd) {
       markerRadius = maxMarkerRadius;
     } else if (currWidth >= rangeStart) {
+      // How much wider is the window than rangeStart?
       const widthInRange = currWidth - rangeStart;
+      // How much does the radius need to change during the animation?
       const sizeVariation = maxMarkerRadius - minMarkerRadius;
+      // Map the size variation to the range
       const adjFactor = sizeVariation/range;
+      // Add the remapped widthInRange to the minimum radius we require
       markerRadius = minMarkerRadius + (widthInRange * adjFactor);
     }
-    // Vairance for 
+    // Variance to be used by flash() function when calculating radius animations
     const flashVariance = markerRadius * Math.PI;
     
     // Make the update
@@ -71,7 +75,6 @@ const ukStyle = new Style({
     color: 'rgba(0, 0, 0, 0)',
   })
 });
-
 
 const markerCircle = new CircleStyle({
   radius: markerRadiusSettings.max,
