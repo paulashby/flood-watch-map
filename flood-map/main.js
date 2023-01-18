@@ -260,7 +260,7 @@ function updateMarkers(items) {
   if (localView) {
     // Add markers simultaneously
     items.forEach(item => {
-      addMarker(items.shift());
+      addMarker(item);
     });
 
   } else if (items.length) {
