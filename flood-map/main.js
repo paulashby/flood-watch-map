@@ -17,6 +17,7 @@ const derbyish = [-1.4746, 52.9225];
 const markerDelay = 150;
 const fitViewDuration = 200;
 const zoomLocalDuration = 1000;
+const maxZoom = 11;
 const flashDuration = 3000;
 const mapGuide = $(".eng-bounds");
 
@@ -121,6 +122,7 @@ let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
 let pulseInterval = 0; // Value is reset when number of markers is known
 let filterBy = false; // Toggle when user is inspecting a location
+let markerSetID = 0; // Tested as base case for addMarkers recursion
 
 markerSource.on('addfeature', function (e) {
   pulse(e.feature);
@@ -132,7 +134,7 @@ $(window).on("home", function () {
   // Switch to national view mode
   localView = false;
   // Show appropriate markers
-  updateLayers([...apiFloodData]);
+  updateMarkers([...apiFloodData]);
   // Adjust view to encompass England
   zoomToExtent(engExtent);
 });
@@ -144,8 +146,8 @@ $(window).on("location", function (e, data) {
   // Get items to include
   const items = data.items;
   // Show local markers and define local boundaries
-  updateLayers(items);
-  // Define the area we're magnifying (listed in anticlockwise order)
+  updateMarkers(items);
+  // Define the area we're magnifying (edges listed in anticlockwise order)
   const localExtent = [
     localBounds.west,
     localBounds.south,
@@ -159,11 +161,13 @@ $(window).on("location", function (e, data) {
 $(window).on("filterMarkers", function (e, data) {
   // Load all markers
   filterBy = data.severity;
-  updateLayers([...apiFloodData]);
+  updateMarkers([...apiFloodData]);
 });
 
-// Frame England within bounds of mapGuide element
-zoomToExtent(engExtent);
+if (dev) {
+  // Frame England within bounds of mapGuide element - on Flood Watch site, map is currently scaled when chart data loads
+  zoomToExtent(engExtent);
+}
 
 // Get flood data and update markers
 $.ajax({
@@ -180,7 +184,7 @@ $.ajax({
       // Use item count to set pulseInterval
       pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
       // Clone array to persist data in original
-      updateLayers([...apiFloodData]);
+      updateMarkers([...apiFloodData]);
     }
   });
 
@@ -203,7 +207,7 @@ function zoomToExtent(extent) {
       padding: getPadding(),
       duration: zoomLocalDuration,
       easing: easeOut,
-      maxZoom: 16
+      maxZoom: maxZoom
     });
 }
 
@@ -247,7 +251,9 @@ function resizeMap() {
 }
 
 // Stagger process of adding markers
-function updateLayers(items) {
+function updateMarkers(items) {
+  // Increment markerSetID to end any existing recursion 
+  markerSetID++;
   // Clear existing markers so we can start from a clean sheet
   clearMarkers();
 
@@ -261,14 +267,18 @@ function updateLayers(items) {
     // Add marker to map and remove from array
     addMarker(items.shift());
     // Add markers iteratively - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(addMarkers, markerDelay, items);
+    let markerInterval = setTimeout(addMarkers, markerDelay, items, markerSetID);
   }
 }
 
-function addMarkers(items) {
+function addMarkers(items, id) {
+  if(id !== markerSetID) {
+    // view location has changed - new set of markers being added
+    return;
+  }
   addMarker(items.shift());
   // Recursive call with updated array - slight delay adds sense of dynamism
-  let markerInterval = setTimeout(addMarkers, markerDelay, items);
+  let markerInterval = setTimeout(addMarkers, markerDelay, items, id);
 }
 
 // Remove existing markers
