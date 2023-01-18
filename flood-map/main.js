@@ -1,4 +1,3 @@
-import GeoJSON from 'ol/format/GeoJSON.js';
 import TileLayer from 'ol/layer/Tile.js';
 import { Map, View } from 'ol/index.js';
 import { Point } from 'ol/geom.js';
@@ -6,7 +5,7 @@ import Stroke from 'ol/style/Stroke.js';
 import Feature from 'ol/Feature.js';
 import { Graticule, Vector as VectorLayer } from 'ol/layer.js';
 import { OSM, Vector as VectorSource } from 'ol/source.js';
-import { Circle as CircleStyle, Fill, Style, Icon } from 'ol/style.js';
+import { Circle as CircleStyle, Fill, Style } from 'ol/style.js';
 import { useGeographic } from 'ol/proj.js';
 import { easeOut } from 'ol/easing.js';
 import { getVectorContext } from 'ol/render.js';
@@ -23,7 +22,7 @@ const mapGuide = $(".eng-bounds");
 
 // Use closure from IIFE to contain related constants
 // Change this to getFlashSettings then just settings.defaultRadius where currenlty used
-const updateMarkerRadiusSettings = (function() {
+const updateMarkerRadiusSettings = (function () {
   // Constants for calculating marker sizes
   const rangeStart = 320;
   const rangeEnd = 1054;
@@ -43,19 +42,21 @@ const updateMarkerRadiusSettings = (function() {
       // How much does the radius need to change during the animation?
       const sizeVariation = maxMarkerRadius - minMarkerRadius;
       // Map the size variation to the range
-      const adjFactor = sizeVariation/range;
+      const adjFactor = sizeVariation / range;
       // Add the remapped widthInRange to the minimum radius we require
       markerRadius = minMarkerRadius + (widthInRange * adjFactor);
     }
-    // Variance to be used by flash() function when calculating radius animations
+    // Variance to be used by flash() when calculating radius animations
     const flashVariance = markerRadius * Math.PI;
-    
+
     // Make the update
     markerRadiusSettings.max = markerRadius;
     markerRadiusSettings.min = minMarkerRadius;
     markerRadiusSettings.variance = flashVariance;
   };
 })();
+
+const engExtent = [-6, 49.75, 2, 55.48];
 
 const markerRadiusSettings = {
   max: 0,
@@ -68,12 +69,6 @@ updateMarkerRadiusSettings();
 const view = new View({
   center: derbyish,
   zoom: 6
-});
-
-const ukStyle = new Style({
-  fill: new Fill({
-    color: 'rgba(0, 0, 0, 0)',
-  })
 });
 
 const markerCircle = new CircleStyle({
@@ -98,17 +93,6 @@ const markerLayer = new VectorLayer({
 
 const markerSource = markerLayer.getSource();
 
-const ukSource = new VectorSource({
-  url: 'data/geojson/england.geojson',
-  format: new GeoJSON(),
-});
-
-const ukLayer = new VectorLayer({
-  title: "UK polygon",
-  source: ukSource,
-  style: ukStyle
-});
-
 const map = new Map({
   target: 'map',
   layers: [
@@ -123,25 +107,20 @@ const map = new Map({
       showLabels: true,
       wrapX: false,
     }),
-    markerLayer,
-    ukLayer
+    markerLayer
   ],
   view: view
 });
 
+const padLocalView = true;
+let localView = false;
+let localBounds = {
+  initalised: false
+};
 let queryURL = "https://environment.data.gov.uk/flood-monitoring/id/floods/";
 let apiFloodData = [];
 let pulseInterval = 0; // Value is reset when number of markers is known
-// Toggle when user is inspecting a location
-const padLocalView = true;
-let localView = false;
-let filterBy = false;
-
-
-// Event handlers
-ukSource.on("featuresloadend", function () {
-  zoomUK(getPadding());
-});
+let filterBy = false; // Toggle when user is inspecting a location
 
 markerSource.on('addfeature', function (e) {
   pulse(e.feature);
@@ -153,35 +132,38 @@ $(window).on("home", function () {
   // Switch to national view mode
   localView = false;
   // Show appropriate markers
-  updateMarkers([...apiFloodData]);
-  // Adjust view to encompass UK
-  zoomUK(getPadding());
+  updateLayers([...apiFloodData]);
+  // Adjust view to encompass England
+  zoomToExtent(engExtent);
 });
 
 $(window).on("location", function (e, data) {
+  // Prepare to switch view
+  localView = true;
+  localBounds.initalised = false;
   // Get items to include
   const items = data.items;
-  // Switch to local view mode
-  localView = true;
-  // Show appropriate markers
-  updateMarkers(items);
-
-  // Zoom to locality
-  view.fit(markerSource.getExtent(), {
-    size: map.getSize(),
-    padding: getPadding(),
-    duration: zoomLocalDuration,
-    easing: easeOut,
-    maxZoom: 16
-  });
+  // Show local markers and define local boundaries
+  updateLayers(items);
+  // Define the area we're magnifying (listed in anticlockwise order)
+  const localExtent = [
+    localBounds.west,
+    localBounds.south,
+    localBounds.east,
+    localBounds.north
+  ];
+  // Perform the zoom operation
+  zoomToExtent(localExtent);
 });
 
 $(window).on("filterMarkers", function (e, data) {
   // Load all markers
   filterBy = data.severity;
-  updateMarkers([...apiFloodData]);
+  updateLayers([...apiFloodData]);
 });
 
+// Frame England within bounds of mapGuide element
+zoomToExtent(engExtent);
 
 // Get flood data and update markers
 $.ajax({
@@ -198,7 +180,7 @@ $.ajax({
       // Use item count to set pulseInterval
       pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
       // Clone array to persist data in original
-      updateMarkers([...apiFloodData]);
+      updateLayers([...apiFloodData]);
     }
   });
 
@@ -216,27 +198,56 @@ function getPadding() {
   return [paddingTop, paddingRight, paddingBottom, paddingLeft];
 }
 
+function zoomToExtent(extent) {
+  view.fit(extent, {
+      padding: getPadding(),
+      duration: zoomLocalDuration,
+      easing: easeOut,
+      maxZoom: 16
+    });
+}
+
+// Replaces corresponding entry in localBounds object if either value 
+// of given coord is outside current bounds
+function updateLocalBounds(coords) { // coords are [long, lat]  
+
+  if (!localBounds.initalised) {
+    // Initalised all fields with current coord values as basis for comparison
+    localBounds = {
+      initalised: true,
+      north: coords[1],
+      east: coords[0],
+      south: coords[1],
+      west: coords[0]
+    }
+  } else {
+    // Update longitude - increases west of Greenwich Meridian
+    if (coords[0] > localBounds.east) {
+      localBounds.east = coords[0];
+    } else if (coords[0] < localBounds.west) {
+      localBounds.west = coords[0];
+    }
+
+    // Update latitude - increases from equator
+    if (coords[1] > localBounds.north) {
+      localBounds.north = coords[1];
+    } else if (coords[1] < localBounds.south) {
+      localBounds.south = coords[1];
+    }
+  }
+}
+
 function resizeMap() {
   // Check whether to use padding when zooming into a location
   if (padLocalView || !localView) {
-    zoomUK(getPadding());
+    zoomToExtent(engExtent);
     updateMarkerRadiusSettings();
     markerCircle.setRadius(markerRadiusSettings.max);
   }
 }
 
-function zoomUK(padding) {
-  const feature = ukSource.getFeatures()[0];
-  const polygon = feature.getGeometry();
-  view.fit(polygon, {
-    padding: padding,
-    duration: fitViewDuration,
-    easing: easeOut
-  });
-}
-
 // Stagger process of adding markers
-function updateMarkers(items) {
+function updateLayers(items) {
   // Clear existing markers so we can start from a clean sheet
   clearMarkers();
 
@@ -245,6 +256,7 @@ function updateMarkers(items) {
     items.forEach(item => {
       addMarker(items.shift());
     });
+
   } else if (items.length) {
     // Add marker to map and remove from array
     addMarker(items.shift());
@@ -272,11 +284,15 @@ function addMarker(markerData) {
   if (markerData) {
     const coords = floodAreas[markerData.floodArea.notation];
 
+    if (localView) {
+      updateLocalBounds(coords);
+    }
+
     if (coords) {
       const severityLevel = markerData.severityLevel;
 
       if (!filterBy || filterBy === severityLevel) {
-        // Marker is correct level is filtering is applied
+        // Marker is correct level if filtering is applied
         const severity = markerData.severity; // eg "Flood warning"
         const location = markerData.description;
         const feature = new Feature({
@@ -323,7 +339,7 @@ function flash(feature) {
       const vectorContext = getVectorContext(event);
       const elapsedRatio = elapsed / flashDuration;
       // radius will be markerRadiusSettings.min at start and markerRadiusSettings.variance + markerRadiusSettings.min at end.
-      const radius = easeOut(elapsedRatio) *  markerRadiusSettings.variance + markerRadiusSettings.min;
+      const radius = easeOut(elapsedRatio) * markerRadiusSettings.variance + markerRadiusSettings.min;
       const opacity = easeOut(1 - elapsedRatio);
 
       const style = new Style({
@@ -343,4 +359,3 @@ function flash(feature) {
     }
   }
 }
-
