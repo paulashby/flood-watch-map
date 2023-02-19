@@ -125,7 +125,14 @@ let filterBy = false; // Toggle when user is inspecting a location
 let markerSetID = 0; // Tested as base case for addMarkers recursion
 
 markerSource.on('addfeature', function (e) {
-  pulse(e.feature);
+  if (localView || filterBy) {
+    // All markers are added simultaneously, so we need to offset the start of each pulse
+    const featureNumber = markerSource.getFeatures().length;
+    const animationStartOffset = (featureNumber - 1) * 400;
+    e.feature.pulseStarter = setTimeout(startPulse, animationStartOffset, e.feature, markerSetID);
+  } else {
+    pulse(e.feature);
+  }
 });
 
 $(window).on("resize chartRendered", resizeMap);
@@ -182,7 +189,7 @@ $.ajax({
     } else {
       apiFloodData = response.items;
       // Use item count to set pulseInterval
-      pulseInterval = Math.round(flashDuration * apiFloodData.length / 100);
+      pulseInterval = Math.round(flashDuration * apiFloodData.length / 10);
       // Clone array to persist data in original
       updateMarkers([...apiFloodData]);
     }
@@ -257,7 +264,7 @@ function updateMarkers(items) {
   // Clear existing markers so we can start from a clean sheet
   clearMarkers();
 
-  if (localView) {
+  if (localView || filterBy) {
     // Add markers simultaneously
     items.forEach(item => {
       addMarker(item);
@@ -284,7 +291,8 @@ function addMarkers(items, id) {
 // Remove existing markers
 function clearMarkers() {
   markerSource.forEachFeature(function (feature) {
-    clearInterval(feature.pulseTimer);
+    clearTimeout(feature.pulseStarter);
+    clearInterval(feature.pulseTimer);    
   });
   markerSource.clear();
 }
@@ -321,6 +329,14 @@ function addMarker(markerData) {
       console.log(markerData.floodArea.notation);
     }
 
+  }
+}
+
+// Initiates delayed pulses for sets of markers that are added simultaneously
+function startPulse(feature, id) {
+  // Check the pulse is still required
+  if (id === markerSetID) {
+    pulse(feature);
   }
 }
 
