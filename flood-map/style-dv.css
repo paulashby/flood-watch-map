@@ -6,7 +6,7 @@
     mix-blend-mode: color-burn; 
 }
 
-.eng-bounds {
+/* .eng-bounds {
     border: dotted 4px #000;
     height: 80vh;
     left: 15px;
@@ -14,7 +14,7 @@
     top: 10vh;
     width: calc(100vw - 30px);
     z-index: 2;
-}
+} */
 
 /* .eng-bounds {
     border: dotted 4px #000;
