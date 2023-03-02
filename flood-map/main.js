@@ -171,7 +171,7 @@ $(window).on("filterMarkers", function (e, data) {
   updateMarkers([...apiFloodData]);
 });
 
-if (dev) {
+if (typeof dev !== "undefined") {
   // Frame England within bounds of mapGuide element - on Flood Watch site, map is currently scaled when chart data loads
   zoomToExtent(engExtent);
 }
