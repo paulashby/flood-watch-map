@@ -14,15 +14,15 @@ import { unByKey } from 'ol/Observable.js';
 useGeographic();
 
 const derbyish = [-1.4746, 52.9225];
-const markerDelay = 150;
-const fitViewDuration = 200;
-const zoomLocalDuration = 1000;
-const maxZoom = 11;
-const flashDuration = 3000;
+const MARKER_DELAY = 150; // Offset addition of markers to add dynamism
+const RIPPLE_DURATION = 3000; // Length of marker ripple animation
+const RIPPLE_OVERLAP = 1200; // Start next ripple before previous has completely faded away
+const ZOOM_LOCAL_DURATION = 1000; // How fast to zoom into local view
+const MAX_ZOOM = 11; // Limit local zoom
 const mapGuide = $(".eng-bounds");
 
 // Use closure from IIFE to contain related constants
-// Change this to getFlashSettings then just settings.defaultRadius where currenlty used
+// Change this to getRippleSettings then just settings.defaultRadius where currently used
 const updateMarkerRadiusSettings = (function () {
   // Constants for calculating marker sizes
   const rangeStart = 320;
@@ -47,13 +47,13 @@ const updateMarkerRadiusSettings = (function () {
       // Add the remapped widthInRange to the minimum radius we require
       markerRadius = minMarkerRadius + (widthInRange * adjFactor);
     }
-    // Variance to be used by flash() when calculating radius animations
-    const flashVariance = markerRadius * Math.PI;
+    // Variance to be used by ripple() when calculating radius animations
+    const rippleVariance = markerRadius * Math.PI;
 
     // Make the update
     markerRadiusSettings.max = markerRadius;
     markerRadiusSettings.min = minMarkerRadius;
-    markerRadiusSettings.variance = flashVariance;
+    markerRadiusSettings.variance = rippleVariance;
   };
 })();
 
@@ -74,7 +74,7 @@ const view = new View({
 
 const markerCircle = new CircleStyle({
   radius: markerRadiusSettings.max,
-  fill: new Fill({ color: 'rgba(100, 100, 100, 0.75)' }),
+  fill: new Fill({ color: 'rgba(130, 130, 130, 1)' }),
 });
 
 const markerStyle = new Style({
@@ -187,9 +187,19 @@ $.ajax({
       // No data
       console.log("No data available");
     } else {
-      apiFloodData = response.items;
-      // Use item count to set pulseInterval
-      pulseInterval = Math.round(flashDuration * apiFloodData.length / 10);
+      apiFloodData = response.items;      
+      /*
+      Tie pulseInterval to the number of markers so the ripple animations propagate through the markers gradually. 
+      When the last ripple has animated, the pulse loops back to the first.
+      It's crucial that there's no pause between pulses here - ripple animations cause the tileLayer to re-render and, 
+      once initiated, they rely upon the tileLayer postrender event for their progression.
+      If no ripple animations are running, no rendering is happening, so no postrender events are generated. 
+      This means the animation callback will no longer run, even though event listeners are added.
+      
+      The Math.max gives us a minimum mutliplier of 1 for the RIPPLE_DURATION - if it goes below this, the animation repeats much too frequently.
+      This would only be a problem if there were fewer than 10 markers.
+      */
+      pulseInterval = Math.round(RIPPLE_DURATION * Math.max(1, apiFloodData.length / 10) - RIPPLE_OVERLAP);
       // Clone array to persist data in original
       updateMarkers([...apiFloodData]);
     }
@@ -212,9 +222,9 @@ function getPadding() {
 function zoomToExtent(extent) {
   view.fit(extent, {
       padding: getPadding(),
-      duration: zoomLocalDuration,
+      duration: ZOOM_LOCAL_DURATION,
       easing: easeOut,
-      maxZoom: maxZoom
+      maxZoom: MAX_ZOOM
     });
 }
 
@@ -274,7 +284,7 @@ function updateMarkers(items) {
     // Add marker to map and remove from array
     addMarker(items.shift());
     // Add markers iteratively - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(addMarkers, markerDelay, items, markerSetID);
+    let markerInterval = setTimeout(addMarkers, MARKER_DELAY, items, markerSetID);
   }
 }
 
@@ -285,7 +295,7 @@ function addMarkers(items, id) {
   }
   addMarker(items.shift());
   // Recursive call with updated array - slight delay adds sense of dynamism
-  let markerInterval = setTimeout(addMarkers, markerDelay, items, id);
+  let markerInterval = setTimeout(addMarkers, MARKER_DELAY, items, id);
 }
 
 // Remove existing markers
@@ -341,29 +351,29 @@ function startPulse(feature, id) {
 }
 
 function pulse(feature) {
-  flash(feature);
-  feature.pulseTimer = setInterval(flash, pulseInterval, feature);
+  ripple(feature);
+  feature.pulseTimer = setInterval(ripple, pulseInterval, feature);
 }
 
-function flash(feature) {
-  // Markers should flash only for appropriate view mode (local/national)
+function ripple(feature) {
+  // Markers should ripple only for appropriate view mode (local/national)
   const passesFilter = !filterBy || filterBy === feature.getProperties().level;
-  const shouldFlash = passesFilter && feature.getProperties().local === localView;
+  const shouldRipple = passesFilter && feature.getProperties().local === localView;
 
-  if (shouldFlash) {
+  if (shouldRipple) {
     const start = Date.now();
-    const flashGeom = feature.getGeometry().clone();
+    const rippleGeom = feature.getGeometry().clone();
     const listenerKey = tileLayer.on('postrender', animate);
 
     function animate(event) {
       const frameState = event.frameState;
       const elapsed = frameState.time - start;
-      if (elapsed >= flashDuration) {
+      if (elapsed >= RIPPLE_DURATION) {
         unByKey(listenerKey);
         return;
       }
       const vectorContext = getVectorContext(event);
-      const elapsedRatio = elapsed / flashDuration;
+      const elapsedRatio = elapsed / RIPPLE_DURATION;
       // radius will be markerRadiusSettings.min at start and markerRadiusSettings.variance + markerRadiusSettings.min at end.
       const radius = easeOut(elapsedRatio) * markerRadiusSettings.variance + markerRadiusSettings.min;
       const opacity = easeOut(1 - elapsedRatio);
@@ -379,7 +389,7 @@ function flash(feature) {
       });
 
       vectorContext.setStyle(style);
-      vectorContext.drawGeometry(flashGeom);
+      vectorContext.drawGeometry(rippleGeom);
       // tell OpenLayers to continue postrender animation
       map.render();
     }
