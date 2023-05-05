@@ -204,7 +204,7 @@
         let filterBy = false;
 
         filterBtn.on("click", function (e) {
-            filterBy = filterBy === false ? 4 : false;
+            filterBy = 4;
             $(window).trigger("filterMarkers", [{
                 severity: filterBy
             }]);
@@ -212,7 +212,6 @@
 
         locBttn.on("click", function (e) {
             $(window).trigger("location", [{
-                location: location,
                 items: mockItems
             }]);
         });

@@ -161,14 +161,21 @@ $(window).on("location", function (e, data) {
     localBounds.east,
     localBounds.north
   ];
-  // Perform the zoom operation
+  
   zoomToExtent(localExtent);
 });
 
 $(window).on("filterMarkers", function (e, data) {
-  // Load all markers
-  filterBy = data.severity;
-  updateMarkers([...apiFloodData]);
+  const severityLevel = data.severity;
+  
+  if (filterBy === severityLevel) {
+    // Toggle back to unfiltered
+    filterBy = false;
+    updateMarkers([...apiFloodData]);
+  } else {
+    filterBy = severityLevel;
+    updateMarkers(apiFloodData.filter(function(item) {return item.severityLevel === filterBy;}));
+  }
 });
 
 if (typeof dev !== "undefined") {
@@ -187,19 +194,9 @@ $.ajax({
       // No data
       console.log("No data available");
     } else {
-      apiFloodData = response.items;      
-      /*
-      Tie pulseInterval to the number of markers so the ripple animations propagate through the markers gradually. 
-      When the last ripple has animated, the pulse loops back to the first.
-      It's crucial that there's no pause between pulses here - ripple animations cause the tileLayer to re-render and, 
-      once initiated, they rely upon the tileLayer postrender event for their progression.
-      If no ripple animations are running, no rendering is happening, so no postrender events are generated. 
-      This means the animation callback will no longer run, even though event listeners are added.
-      
-      The Math.max gives us a minimum mutliplier of 1 for the RIPPLE_DURATION - if it goes below this, the animation repeats much too frequently.
-      This would only be a problem if there were fewer than 10 markers.
-      */
-      pulseInterval = Math.round(RIPPLE_DURATION * Math.max(1, apiFloodData.length / 10) - RIPPLE_OVERLAP);
+      apiFloodData = response.items; 
+      // Set pulseInterval to match number of markers
+      setPulseInterval(apiFloodData.length);
       // Clone array to persist data in original
       updateMarkers([...apiFloodData]);
     }
@@ -228,7 +225,7 @@ function zoomToExtent(extent) {
     });
 }
 
-// Replaces corresponding entry in localBounds object if either value 
+// Replace corresponding entry in localBounds object if either value 
 // of given coord is outside current bounds
 function updateLocalBounds(coords) { // coords are [long, lat]  
 
@@ -273,6 +270,8 @@ function updateMarkers(items) {
   markerSetID++;
   // Clear existing markers so we can start from a clean sheet
   clearMarkers();
+  // Update pulseInterval to allow for given number of items
+  setPulseInterval(items.length);
 
   if (localView || filterBy) {
     // Add markers simultaneously
@@ -284,7 +283,7 @@ function updateMarkers(items) {
     // Add marker to map and remove from array
     addMarker(items.shift());
     // Add markers iteratively - slight delay adds sense of dynamism
-    let markerInterval = setTimeout(addMarkers, MARKER_DELAY, items, markerSetID);
+    setTimeout(addMarkers, MARKER_DELAY, items, markerSetID);
   }
 }
 
@@ -317,30 +316,38 @@ function addMarker(markerData) {
     }
 
     if (coords) {
-      const severityLevel = markerData.severityLevel;
+      // Marker is correct level if filtering is applied
+      const severity = markerData.severity; // eg "Flood warning"
+      const location = markerData.description;
+      const feature = new Feature({
+        geometry: new Point(coords),
+        type: severity,
+        level: markerData.severityLevel,
+        name: location,
+        local: localView
+      });
 
-      if (!filterBy || filterBy === severityLevel) {
-        // Marker is correct level if filtering is applied
-        const severity = markerData.severity; // eg "Flood warning"
-        const location = markerData.description;
-        const feature = new Feature({
-          geometry: new Point(coords),
-          type: severity,
-          level: severityLevel,
-          name: location,
-          local: localView
-        });
-
-        // Add updated
-        markerSource.addFeature(feature);
-      }
-
+      // Add updated
+      markerSource.addFeature(feature);
     } else {
       console.log(markerData.floodArea.notation);
     }
 
   }
 }
+
+/*
+    Set appropriate pulseInterval for the number of markers so the ripple animations loop through the markers gradually. 
+    It's crucial that there's no pause between pulses here - ripple animations cause the tileLayer to re-render and, 
+    once initiated, they rely upon the tileLayer postrender event for their progression.
+    If no ripple animations are running, no rendering is happening, so no postrender events are generated. 
+    This means the animation callback will no longer run, even though event listeners are added.   
+*/
+function setPulseInterval(markerCount) {
+  // Math.max gives us a minimum mutliplier of 1 for the RIPPLE_DURATION - if it goes below this, 
+  // the animation repeats much too frequently. This would only be a problem with < 10 markers.
+  pulseInterval = Math.round(RIPPLE_DURATION * Math.max(1, markerCount / 10) - RIPPLE_OVERLAP);
+}      
 
 // Initiates delayed pulses for sets of markers that are added simultaneously
 function startPulse(feature, id) {
@@ -359,7 +366,7 @@ function ripple(feature) {
   // Markers should ripple only for appropriate view mode (local/national)
   const passesFilter = !filterBy || filterBy === feature.getProperties().level;
   const shouldRipple = passesFilter && feature.getProperties().local === localView;
-
+  
   if (shouldRipple) {
     const start = Date.now();
     const rippleGeom = feature.getGeometry().clone();
@@ -383,7 +390,7 @@ function ripple(feature) {
           radius: radius,
           stroke: new Stroke({
             color: `rgba(255, 255, 255, ${opacity})`,
-            width: 3 + opacity,
+            width: 1 + opacity,
           }),
         }),
       });
