@@ -22,7 +22,6 @@ const MAX_ZOOM = 11; // Limit local zoom
 const mapGuide = $(".eng-bounds");
 
 // Use closure from IIFE to contain related constants
-// Change this to getRippleSettings then just settings.defaultRadius where currently used
 const updateMarkerRadiusSettings = (function () {
   // Constants for calculating marker sizes
   const rangeStart = 320;
@@ -368,6 +367,7 @@ function ripple(feature) {
   const shouldRipple = passesFilter && feature.getProperties().local === localView;
   
   if (shouldRipple) {
+    // See https://openlayers.org/en/latest/examples/feature-animation.html
     const start = Date.now();
     const rippleGeom = feature.getGeometry().clone();
     const listenerKey = tileLayer.on('postrender', animate);
